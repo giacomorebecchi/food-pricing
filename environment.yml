@@ -1,0 +1,25 @@
+name: food-pricing
+channels: 
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+
+  - ipython
+  - ipykernel
+  - jupyterlab
+  
+  - dask
+  - dask-labextension
+  - s3fs
+  - pyarrow
+  - pandas
+  - numpy
+  - scipy
+  - seaborn
+  - scikit-learn
+  - pytorch
+  - black
+  - flake8
+  - python-dotenv
+  - lxml
