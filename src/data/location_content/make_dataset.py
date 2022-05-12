@@ -19,6 +19,7 @@ GLOB_PATH = build_path(
     "*",  # file_name
 )
 PATH_MAP = {
+    "/data/": "/data-interim/",
     "/response/": "/content/",
     ".html": ".json",
 }
