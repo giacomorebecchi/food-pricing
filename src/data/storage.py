@@ -72,6 +72,16 @@ def load_bytes(fs: AbstractFileSystem, path: str) -> bytes:
     return obj
 
 
+def load_list(fs: AbstractFileSystem, path: str) -> List:
+    if not path.endswith(".jsonlines"):
+        raise Exception("Function supported with .jsonlines format only.")
+    output = []
+    with fs.open(path, mode="rb") as file:
+        for line in file:
+            output.append(json.loads(line))
+    return output
+
+
 def build_path(*args: str) -> str:
     path = PurePosixPath(get_S3_settings().BUCKET).joinpath(*args)
     return str(path)
