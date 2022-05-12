@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
+  - nodejs
   - pip
 
   - ipython
@@ -23,3 +24,5 @@ dependencies:
   - flake8
   - python-dotenv
   - lxml
+  - bokeh
+  - python-graphviz
