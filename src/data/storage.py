@@ -1,4 +1,5 @@
 import json
+import os
 from functools import lru_cache
 from pathlib import PurePosixPath
 from typing import Dict, List
@@ -90,4 +91,16 @@ def build_path(*args: str) -> str:
 def build_output_path(path: str, sub_map: Dict) -> str:
     for key, value in sub_map.items():
         path = path.replace(key, value, 1)
+    return path
+
+
+def get_local_data_path(
+    path: List, file_name: str = "", file_format: str = ""
+) -> PurePosixPath:
+    current_path = PurePosixPath(__file__).parent
+    data_path = current_path.parent.parent.joinpath("data", *path)
+    if not os.path.exists(data_path):
+        print(f"Path {data_path} did not exist. Created it.")
+        os.makedirs(data_path, exist_ok=False)
+    path = data_path.joinpath(file_name).with_suffix(file_format)
     return path
