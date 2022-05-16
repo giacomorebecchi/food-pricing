@@ -6,6 +6,9 @@ dependencies:
   - nodejs
   - pip
 
+  - pip:
+    - -e .
+
   - ipython
   - ipykernel
   - jupyterlab
@@ -21,8 +24,11 @@ dependencies:
   - scikit-learn
   - pytorch
   - black
+  - jupyterlab_code_formatter
   - flake8
   - python-dotenv
+  - pydantic
   - lxml
   - bokeh
   - python-graphviz
+  - geopy
