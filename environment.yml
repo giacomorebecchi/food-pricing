@@ -35,3 +35,6 @@ dependencies:
   - bokeh
   - python-graphviz
   - geopy
+  - tensorboard
+  - captum
+  - flask
