@@ -1,4 +1,5 @@
 import os
+from pathlib import PurePosixPath
 from typing import Dict
 
 import dask.dataframe as dd
@@ -94,7 +95,12 @@ def load_csv(fp: str, suffix: str, dtypes=Dict[str, type]) -> pd.DataFrame:
     return df
 
 
-def main(ipath: str, opath: str, suffix: str, dtypes: Dict[str, type]) -> None:
+def main(
+    ipath: str,
+    suffix: str,
+    dtypes: Dict[str, type],
+    opath: PurePosixPath,
+) -> None:
     S3 = get_S3_fs()
     csv_paths = S3.glob(ipath)
     delayed_dfs = (load_csv(fp, suffix, dtypes) for fp in csv_paths)

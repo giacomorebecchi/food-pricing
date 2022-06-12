@@ -1,5 +1,5 @@
-from pathlib import PurePosixPath
 import re
+from pathlib import PurePosixPath
 from typing import List
 
 import dask.bag as db
@@ -60,7 +60,7 @@ def main(
     zones_subpath: str,
     imgs_subpath: str,
     img_path_pattern: re.Pattern,
-    opath: str,
+    opath: PurePosixPath,
     get_shapes: bool = False,
 ) -> None:
     S3 = get_S3_fs()
