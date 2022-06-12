@@ -1,10 +1,13 @@
+from pathlib import PurePosixPath
 import re
 from typing import List
 
 import dask.bag as db
+import pandas as pd
 from dask import delayed
 from dotenv import load_dotenv
 from fsspec import AbstractFileSystem
+from PIL import Image
 from src.data.settings import get_S3_settings
 from src.data.storage import build_path, get_local_data_path, get_S3_fs
 
@@ -22,7 +25,7 @@ ZONES_SUBPATH = "/*"
 IMGS_SUBPATH = "/**/*.*"
 
 IMG_PATH_PATTERN = re.compile(
-    rf"(?P<imgPath>{get_S3_settings().BUCKET}/data/images/(?:[a-zA-Z.]+)/store/(?P<city>[a-zA-Z\-]+)/(?P<zone>[a-zA-Z\-]+)/(?:[a-zA-z0-9\-]+)/(?:[T0-9\.\:\-]+)/(?P<store>[a-zA-Z0-9\-]+)-(?P<menuRow>[0-9]+)+.(?P<format>[a-zA-Z0-9]+))$"
+    rf"(?P<imgPath>{get_S3_settings().BUCKET}/data/images/(?:[a-zA-Z.]+)/store/(?P<city>[a-zA-Z\-]+)/(?P<zone>[a-zA-Z\-]+)/(?:[a-zA-z0-9\-]+)/(?:[T0-9\.\:\-]+)/(?P<store>[a-zA-Z0-9\-]+)-(?P<menuRow>[0-9]+)+(?P<format>.[a-zA-Z0-9]+))$"
 )
 OUTPUT_PATH = get_local_data_path(path=["interim", "images"])
 
@@ -36,7 +39,20 @@ def get_children(
 
 @delayed
 def compute_img(paths: List[str], pattern: re.Pattern):
-    return [re.match(pattern, path).groupdict() for path in paths]
+    return [
+        {
+            key: int(value) if value.isnumeric() else value
+            for key, value in re.match(pattern, path).groupdict().items()
+        }
+        for path in paths
+    ]
+
+
+def compute_shape(path: str) -> pd.Series:
+    S3 = get_S3_fs()
+    with S3.open(path, mode="rb") as f:
+        a = Image.open(f)
+    return pd.Series({"height": a.height, "width": a.width})
 
 
 def main(
@@ -45,6 +61,7 @@ def main(
     imgs_subpath: str,
     img_path_pattern: re.Pattern,
     opath: str,
+    get_shapes: bool = False,
 ) -> None:
     S3 = get_S3_fs()
     zone_paths = [
@@ -59,6 +76,11 @@ def main(
         compute_img(img_paths_zone, img_path_pattern) for img_paths_zone in img_paths
     ]
     ddf = db.from_delayed(img_data).to_dataframe()
+    if get_shapes:
+        ddf_size = ddf.imgPath[ddf.format == ".jpeg"].apply(
+            compute_shape, meta={"height": int, "width": int}
+        )
+        ddf = ddf.assign(height=ddf_size.height, width=ddf_size.width)
     ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
 
 
