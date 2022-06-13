@@ -5,7 +5,7 @@ from .geocode_location import geocode_address, get_coords
 from .utils import find_locations, get_sitemap
 
 
-def make_dataset() -> None:
+def make_coordinates_table() -> None:
     sitemap_text = get_sitemap()
     locations = find_locations(sitemap_text)
     df = pd.DataFrame(locations, columns=["city", "zone"])
@@ -30,4 +30,4 @@ def make_dataset() -> None:
 
 
 if __name__ == "__main__":
-    make_dataset()
+    make_coordinates_table()

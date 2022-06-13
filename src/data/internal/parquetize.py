@@ -119,6 +119,14 @@ def csv_to_parquet(
     ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
 
 
-if __name__ == "__main__":
+def make_items_table() -> None:
     csv_to_parquet(ITEM_SUFFIX, ITEM_DTYPES, ITEM_INPUT_PATH, ITEM_OUTPUT_PATH)
+
+
+def make_stores_table() -> None:
     csv_to_parquet(STORE_SUFFIX, STORE_DTYPES, STORE_INPUT_PATH, STORE_OUTPUT_PATH)
+
+
+if __name__ == "__main__":
+    make_items_table()
+    make_stores_table()

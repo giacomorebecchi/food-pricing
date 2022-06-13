@@ -47,7 +47,7 @@ def compute_shape(path: str) -> pd.Series:
     return pd.Series({"height": a.height, "width": a.width})
 
 
-def images_table(
+def make_images_table(
     cities_path: str,
     zones_subpath: str,
     imgs_subpath: str,
@@ -77,6 +77,6 @@ def images_table(
 
 
 if __name__ == "__main__":
-    images_table(
+    make_images_table(
         CITIES_PATH, ZONES_SUBPATH, IMGS_SUBPATH, IMG_PATH_PATTERN, OUTPUT_PATH
     )
