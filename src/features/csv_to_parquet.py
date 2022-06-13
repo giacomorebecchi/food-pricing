@@ -96,9 +96,9 @@ def load_csv(fp: str, suffix: str, dtypes=Dict[str, type]) -> pd.DataFrame:
 
 
 def main(
-    ipath: str,
     suffix: str,
     dtypes: Dict[str, type],
+    ipath: str,
     opath: PurePosixPath,
 ) -> None:
     S3 = get_S3_fs()
@@ -120,5 +120,5 @@ def main(
 
 
 if __name__ == "__main__":
-    main(ITEM_INPUT_PATH, ITEM_OUTPUT_PATH, ITEM_SUFFIX, ITEM_DTYPES)
-    main(STORE_INPUT_PATH, STORE_OUTPUT_PATH, STORE_SUFFIX, STORE_DTYPES)
+    main(ITEM_SUFFIX, ITEM_DTYPES, ITEM_INPUT_PATH, ITEM_OUTPUT_PATH)
+    main(STORE_SUFFIX, STORE_DTYPES, STORE_INPUT_PATH, STORE_OUTPUT_PATH)
