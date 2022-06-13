@@ -104,3 +104,10 @@ def get_local_data_path(
         os.makedirs(data_path, exist_ok=False)
     path = data_path.joinpath(file_name).with_suffix(file_format)
     return path
+
+
+def get_children(
+    fs: AbstractFileSystem, parent_dir: str = "", child_path: str = "/**/*.*"
+):
+    path = parent_dir + child_path
+    return fs.glob(path)
