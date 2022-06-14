@@ -22,7 +22,9 @@ input_path = lambda s: get_remote_data_path(
 ITEM_INPUT_PATH = input_path(ITEM_SUFFIX)
 STORE_INPUT_PATH = input_path(STORE_SUFFIX)
 
-output_path = lambda s: get_local_data_path(["interim", s])
+output_path = lambda s: get_local_data_path(
+    path=["interim"], file_name=s, file_format=".parquet.gzip"
+)
 ITEM_OUTPUT_PATH = output_path(ITEM_SUFFIX)
 STORE_OUTPUT_PATH = output_path(STORE_SUFFIX)
 
