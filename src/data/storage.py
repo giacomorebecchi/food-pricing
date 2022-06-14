@@ -116,8 +116,8 @@ def get_remote_data_path(
     if base_url_position is not None:
         path.insert(base_url_position, os.environ["BASE_URL"])
     fpath = (
-        PurePosixPath("data")
-        .joinpath(*path)
+        PurePosixPath(get_S3_settings().BUCKET)
+        .joinpath("data", *path)
         .joinpath(file_name)
         .with_suffix(file_format)
     )
@@ -163,6 +163,10 @@ def get_local_size(path: PurePosixPath) -> int:
         return os.path.getsize(path)
     elif os.path.isdir(path):
         return get_local_dir_size(path)
+    elif not os.path.exists(path):
+        return 0
+    else:
+        raise Exception(f"Error in exists function for path {path}")
 
 
 def get_remote_size(path: PurePosixPath) -> int:
