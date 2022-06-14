@@ -50,7 +50,7 @@ def compute_shape(path: str) -> pd.Series:
 
 
 def make_images_table(
-    cities_path: str,
+    cities_path: PurePosixPath,
     zones_subpath: str,
     imgs_subpath: str,
     img_path_pattern: re.Pattern,
@@ -61,7 +61,7 @@ def make_images_table(
     S3 = get_S3_fs()
     zone_paths = [
         zone
-        for city in get_children(S3, parent_dir="", child_path=cities_path)
+        for city in get_children(S3, parent_dir="", child_path=str(cities_path))
         for zone in get_children(S3, city, zones_subpath)
     ]
     img_paths = [
