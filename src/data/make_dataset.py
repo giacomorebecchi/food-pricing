@@ -45,7 +45,7 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
             IMAGES_TABLE.remote = remote
             make_table(IMAGES_TABLE, remote)
 
-        if exists(ITEMS_TABLE, local=False):
+        if exists(ITEMS_TABLE.remote_path, local=False):
             pass
         else:
             ITEMS_TABLE.remote = remote
@@ -53,3 +53,7 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
 
         opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
         join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote)
+
+
+if __name__ == "__main__":
+    main(overwrite=False, remote=False)
