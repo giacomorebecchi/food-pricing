@@ -1,12 +1,12 @@
-from src.data.external.location_coordinates import make_coordinates_table
-from src.data.internal.images import (
+from .external.location_coordinates import make_coordinates_table
+from .internal.images import (
     CITIES_PATH,
     IMG_PATH_PATTERN,
     IMGS_SUBPATH,
     ZONES_SUBPATH,
     make_images_table,
 )
-from src.data.internal.parquetize import (
+from .internal.parquetize import (
     ITEM_DTYPES,
     ITEM_INPUT_PATH,
     ITEM_SUFFIX,

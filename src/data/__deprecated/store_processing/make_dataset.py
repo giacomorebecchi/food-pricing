@@ -1,3 +1,7 @@
+from src.data.__deprecated.store_processing.parsing import (
+    transform_data_menu,
+    transform_data_store,
+)
 from src.data.storage import (
     build_output_path,
     build_path,
@@ -5,8 +9,6 @@ from src.data.storage import (
     load_list,
     write_list,
 )
-
-from .parsing import transform_data_menu, transform_data_store
 
 GLOB_PATH = build_path(
     "data",

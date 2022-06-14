@@ -6,20 +6,18 @@ import dask.dataframe as dd
 import pandas as pd
 from dask import delayed
 from dotenv import load_dotenv
-from src.data.storage import build_path, get_local_data_path, get_S3_fs
+from src.data.storage import get_local_data_path, get_remote_data_path, get_S3_fs
 
 load_dotenv()
 
 ITEM_SUFFIX = "menu"
 STORE_SUFFIX = "store"
 
-input_path = lambda s: build_path(
-    "data",
-    "processed",
-    "*",
-    "store",
-    "**",
-    f"*-{s}.csv",
+input_path = lambda s: get_remote_data_path(
+    path=["processed", "store", "**"],
+    file_name=f"*-{s}",
+    file_format=".csv",
+    base_url_position=1,
 )
 ITEM_INPUT_PATH = input_path(ITEM_SUFFIX)
 STORE_INPUT_PATH = input_path(STORE_SUFFIX)
@@ -100,9 +98,10 @@ def csv_to_parquet(
     dtypes: Dict[str, type],
     ipath: str,
     opath: PurePosixPath,
+    remote: bool = False,
 ) -> None:
     S3 = get_S3_fs()
-    csv_paths = S3.glob(ipath)
+    csv_paths = S3.glob(str(ipath))
     delayed_dfs = (load_csv(fp, suffix, dtypes) for fp in csv_paths)
     ddf: dd.DataFrame = dd.from_delayed(
         delayed_dfs,
@@ -115,6 +114,7 @@ def csv_to_parquet(
             "menuRow": int,
         },
     )
+    # TODO: custom to_parquet here
     ddf = ddf.repartition(partition_size="10MB")
     ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
 

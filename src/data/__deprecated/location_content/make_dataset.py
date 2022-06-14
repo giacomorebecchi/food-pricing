@@ -1,3 +1,4 @@
+from src.data.__deprecated.location_content.parsing import parse_location_response
 from src.data.storage import (
     build_output_path,
     build_path,
@@ -5,8 +6,6 @@ from src.data.storage import (
     load_bytes,
     write_bytes,
 )
-
-from .parsing import parse_location_response
 
 DATA_XPATH = "//script[contains(@id, '__NEXT_DATA__')]"
 GLOB_PATH = build_path(
