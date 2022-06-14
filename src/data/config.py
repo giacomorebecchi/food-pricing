@@ -6,6 +6,12 @@ from src.data.internal.images import (
     ZONES_SUBPATH,
     make_images_table,
 )
+from src.data.internal.parquetize import (
+    ITEM_DTYPES,
+    ITEM_INPUT_PATH,
+    ITEM_SUFFIX,
+    csv_to_parquet,
+)
 
 from .table_model import Table
 
@@ -69,8 +75,12 @@ ITEMS_TABLE = Table(
     file_name="items",
     file_format=".parquet.gzip",
     base_url_position=1,
-    write_func=make_coordinates_table,
-    kwargs={},
+    write_func=csv_to_parquet,
+    kwargs={
+        "suffix": ITEM_SUFFIX,
+        "dtypes": ITEM_DTYPES,
+        "ipath": ITEM_INPUT_PATH,
+    },
     columns=[
         "name",
         "description",
