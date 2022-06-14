@@ -2,14 +2,15 @@ import json
 import os
 from functools import lru_cache
 from pathlib import PurePosixPath
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pandas as pd
 import pyarrow.fs
 import s3fs
 from dotenv import load_dotenv
 from fsspec import AbstractFileSystem
-from src.data.settings import get_S3_settings
+
+from .settings import get_S3_settings
 
 # load environment variables
 load_dotenv()
@@ -83,15 +84,15 @@ def load_list(fs: AbstractFileSystem, path: str) -> List:
     return output
 
 
-def build_path(*args: str) -> str:
+def build_path(*args: str) -> PurePosixPath:
     path = PurePosixPath(get_S3_settings().BUCKET).joinpath(*args)
-    return str(path)
+    return path
 
 
-def build_output_path(path: str, sub_map: Dict) -> str:
+def build_output_path(path: str, sub_map: Dict) -> PurePosixPath:
     for key, value in sub_map.items():
         path = path.replace(key, value, 1)
-    return path
+    return PurePosixPath(path)
 
 
 def get_local_data_path(
@@ -106,8 +107,60 @@ def get_local_data_path(
     return path
 
 
+def get_remote_data_path(
+    path: List,
+    file_name: str = "",
+    file_format: str = "",
+    base_url_position: int = None,
+):
+    if base_url_position is not None:
+        path.insert(base_url_position, os.environ["BASE_URL"])
+    fpath = (
+        PurePosixPath("data")
+        .joinpath(*path)
+        .joinpath(file_name)
+        .with_suffix(file_format)
+    )
+    return fpath
+
+
 def get_children(
     fs: AbstractFileSystem, parent_dir: str = "", child_path: str = "/**/*.*"
 ):
     path = parent_dir + child_path
     return fs.glob(path)
+
+
+def exists(
+    fpath: PurePosixPath,
+    local: bool = True,
+) -> bool:
+    try:
+        if local:
+            return get_local_size(fpath) > 0
+        else:
+            return get_remote_size(fpath) > 0
+    except Exception:  # TODO: capture correct Exception
+        return False
+
+
+def get_local_size(path: PurePosixPath) -> int:
+    def get_local_dir_size(path: PurePosixPath) -> int:
+        total = 0
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.is_file():
+                    total += os.path.get_size(entry)
+                elif entry.is_dir():
+                    total += get_local_dir_size(entry.path)
+        return total
+
+    if os.path.isfile(path):
+        return os.path.getsize(path)
+    elif os.path.isdir(path):
+        return get_local_dir_size(path)
+
+
+def get_remote_size(path: PurePosixPath) -> int:
+    S3 = get_S3_fs()
+    return S3.du(path)
