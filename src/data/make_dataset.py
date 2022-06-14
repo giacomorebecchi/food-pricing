@@ -1,8 +1,14 @@
 import shutil
 
-from .config import COORDINATES_TABLE, FULL_TABLE, IMAGES_TABLE, ITEMS_TABLE, Table
-from .join_tables import join
-from .storage import exists, get_S3_fs
+from src.data.config import (
+    COORDINATES_TABLE,
+    FULL_TABLE,
+    IMAGES_TABLE,
+    ITEMS_TABLE,
+    Table,
+)
+from src.data.join_tables import join
+from src.data.storage import exists, get_S3_fs
 
 
 def download(table: Table) -> None:
@@ -45,4 +51,5 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
             ITEMS_TABLE.remote = remote
             make_table(ITEMS_TABLE, remote)
 
-        join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], remote)
+        opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
+        join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote)
