@@ -135,13 +135,17 @@ def exists(
     fpath: PurePosixPath,
     local: bool = True,
 ) -> bool:
-    try:
-        if local:
-            return get_local_size(fpath) > 0
-        else:
-            return get_remote_size(fpath) > 0
-    except Exception:  # TODO: capture correct Exception
-        return False
+    if local:
+        return get_local_size(fpath) > 0
+    else:
+        return get_remote_size(fpath) > 0
+    # try:
+    #     if local:
+    #         return get_local_size(fpath) > 0
+    #     else:
+    #         return get_remote_size(fpath) > 0
+    # except Exception:  # TODO: capture correct Exception
+    #     return False
 
 
 def get_local_size(path: PurePosixPath) -> int:
