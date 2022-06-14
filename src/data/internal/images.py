@@ -8,7 +8,13 @@ from dask import delayed
 from dotenv import load_dotenv
 from PIL import Image
 from src.data.settings import get_S3_settings
-from src.data.storage import build_path, get_children, get_local_data_path, get_S3_fs
+from src.data.storage import (
+    build_path,
+    get_children,
+    get_local_data_path,
+    get_S3_fs,
+    dd_write_parquet,
+)
 
 load_dotenv()
 
@@ -72,12 +78,11 @@ def make_images_table(
     ]
     ddf = db.from_delayed(img_data).to_dataframe()
     if get_shapes:
-        ddf_size = ddf.imgPath[ddf.format == ".jpeg"].apply(  # why only .jpeg?
+        ddf_size = ddf.imgPath[ddf.format == ".jpeg"].apply(  # TODO: why only .jpeg?
             compute_shape, meta={"height": int, "width": int}
         )
         ddf = ddf.assign(height=ddf_size.height, width=ddf_size.width)
-    # TODO: custom to_parquet here
-    ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
+    dd_write_parquet(opath, ddf, remote, partition_on=["city", "zone"])
 
 
 if __name__ == "__main__":

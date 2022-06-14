@@ -6,7 +6,12 @@ import dask.dataframe as dd
 import pandas as pd
 from dask import delayed
 from dotenv import load_dotenv
-from src.data.storage import get_local_data_path, get_remote_data_path, get_S3_fs
+from src.data.storage import (
+    get_local_data_path,
+    get_remote_data_path,
+    get_S3_fs,
+    dd_write_parquet,
+)
 
 load_dotenv()
 
@@ -116,9 +121,7 @@ def csv_to_parquet(
             "menuRow": int,
         },
     )
-    # TODO: custom to_parquet here
-    ddf = ddf.repartition(partition_size="10MB")
-    ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
+    dd_write_parquet(opath, ddf, remote, partition_on=["city", "zone"])
 
 
 def make_items_table() -> None:

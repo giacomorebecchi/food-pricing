@@ -13,7 +13,7 @@ from src.data.storage import exists, get_S3_fs
 
 def download(table: Table) -> None:
     S3 = get_S3_fs()
-    S3.download(table.remote_path, table.local_path, recursive=True)
+    S3.download(str(table.remote_path), str(table.local_path), recursive=True)
 
 
 def make_table(table: Table, remote: bool) -> None:
@@ -54,6 +54,9 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
         opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
         join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote)
 
+        if remote:
+            download(FULL_TABLE)
+
 
 if __name__ == "__main__":
-    main(overwrite=False, remote=False)
+    main(overwrite=False, remote=True)

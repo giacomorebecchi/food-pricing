@@ -2,8 +2,9 @@ import json
 import os
 from functools import lru_cache
 from pathlib import PurePosixPath
-from typing import Dict, List, Optional
+from typing import Dict, List, Union
 
+import dask.dataframe as dd
 import pandas as pd
 import pyarrow.fs
 import s3fs
@@ -154,7 +155,7 @@ def get_local_size(path: PurePosixPath) -> int:
         with os.scandir(path) as it:
             for entry in it:
                 if entry.is_file():
-                    total += os.path.get_size(entry)
+                    total += os.path.getsize(entry)
                 elif entry.is_dir():
                     total += get_local_dir_size(entry.path)
         return total
@@ -172,3 +173,57 @@ def get_local_size(path: PurePosixPath) -> int:
 def get_remote_size(path: PurePosixPath) -> int:
     S3 = get_S3_fs()
     return S3.du(path)
+
+
+def pd_write_parquet(
+    path: PurePosixPath,
+    df: pd.DataFrame,
+    remote: bool = False,
+    partition_cols: List[str] = None,
+) -> None:
+    storage_options = (
+        {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
+        if remote
+        else None
+    )
+    df.to_parquet(
+        path="s3://" * remote + str(path),
+        storage_options=storage_options,
+        compression="gzip",
+        partition_cols=partition_cols,
+    )
+
+
+def dd_write_parquet(
+    path: PurePosixPath,
+    ddf: dd.DataFrame,
+    remote: bool = False,
+    partition_on: List[str] = None,
+) -> None:
+    storage_options = (
+        {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
+        if remote
+        else None
+    )
+    ddf = ddf.repartition(partition_size="10MB")
+    ddf.to_parquet(
+        path="s3://" * remote + str(path),
+        storage_options=storage_options,
+        compression="gzip",
+        partition_on=partition_on,
+    )
+
+
+def dd_read_parquet(
+    path: PurePosixPath, remote: bool = False, columns: List[str] = None
+) -> dd.DataFrame:
+    storage_options = (
+        {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
+        if remote
+        else None
+    )
+    return dd.read_parquet(
+        path="s3://" * remote + str(path),
+        storage_options=storage_options,
+        columns=columns,
+    )

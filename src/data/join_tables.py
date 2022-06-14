@@ -3,7 +3,7 @@ from typing import List, Set
 
 import dask.dataframe as dd
 from src.data.config import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
-from src.data.storage import get_local_data_path
+from src.data.storage import dd_read_parquet, get_local_data_path, dd_write_parquet
 from src.data.table_model import Table
 
 TABLES = [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE]
@@ -36,7 +36,7 @@ def read_categorical_parquet(
     categoricals: Set[str],
 ) -> dd.DataFrame:
     path = table.remote_path if table.remote else table.local_path
-    ddf = dd.read_parquet(path, columns=table.columns)
+    ddf = dd_read_parquet(path, table.remote, table.columns)
     return ddf.categorize(columns=list(categoricals))
 
 
@@ -53,8 +53,7 @@ def join(
         update_categories(ddf, temp_ddf, categoricals)
         cols = [col for col in tables[0].join_on if col in tables[i].join_on]
         ddf = dd.merge(left=ddf, right=temp_ddf, how="left", on=cols)
-    # TODO: custom to_parquet here
-    ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
+    dd_write_parquet(opath, ddf, remote, partition_on=["city", "zone"])
 
 
 if __name__ == "__main__":
