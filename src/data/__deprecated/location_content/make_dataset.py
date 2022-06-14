@@ -1,4 +1,4 @@
-from src.data.location_content.parsing import parse_location_response
+from src.data.__deprecated.location_content.parsing import parse_location_response
 from src.data.storage import (
     build_output_path,
     build_path,

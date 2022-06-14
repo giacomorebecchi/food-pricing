@@ -5,11 +5,9 @@ from typing import List
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+from .definitions import LOCATION_URL_REGEX
 
-_LOCATION_URL_REGEX = re.compile(
-    r"(?:http[s]{0,1}://(?:[a-z]+\.(?:it|fr|en|es|de))(?:/(?:[a-zA-Z]{2,3}))?)?/restaurants/(?P<city>[a-zA-Z0-9\-\']*)/(?P<zone>[a-zA-Z0-9\-\']*)(?:/){0,1}"
-)
+load_dotenv()
 
 
 def get_sitemap() -> str:
@@ -19,6 +17,6 @@ def get_sitemap() -> str:
 
 
 def find_locations(text: str) -> List:
-    matches = re.findall(_LOCATION_URL_REGEX, text)
+    matches = re.findall(LOCATION_URL_REGEX, text)
     locations = list(dict.fromkeys(matches))
     return locations

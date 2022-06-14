@@ -6,25 +6,30 @@ import dask.dataframe as dd
 import pandas as pd
 from dask import delayed
 from dotenv import load_dotenv
-from src.data.storage import build_path, get_local_data_path, get_S3_fs
+from src.data.storage import (
+    get_local_data_path,
+    get_remote_data_path,
+    get_S3_fs,
+    dd_write_parquet,
+)
 
 load_dotenv()
 
 ITEM_SUFFIX = "menu"
 STORE_SUFFIX = "store"
 
-input_path = lambda s: build_path(
-    "data",
-    "processed",
-    "*",
-    "store",
-    "**",
-    f"*-{s}.csv",
+input_path = lambda s: get_remote_data_path(
+    path=["processed", "store", "**"],
+    file_name=f"*-{s}",
+    file_format=".csv",
+    base_url_position=1,
 )
 ITEM_INPUT_PATH = input_path(ITEM_SUFFIX)
 STORE_INPUT_PATH = input_path(STORE_SUFFIX)
 
-output_path = lambda s: get_local_data_path(["interim", s])
+output_path = lambda s: get_local_data_path(
+    path=["interim"], file_name=s, file_format=".parquet.gzip"
+)
 ITEM_OUTPUT_PATH = output_path(ITEM_SUFFIX)
 STORE_OUTPUT_PATH = output_path(STORE_SUFFIX)
 
@@ -95,14 +100,15 @@ def load_csv(fp: str, suffix: str, dtypes=Dict[str, type]) -> pd.DataFrame:
     return df
 
 
-def main(
+def csv_to_parquet(
     suffix: str,
     dtypes: Dict[str, type],
     ipath: str,
     opath: PurePosixPath,
+    remote: bool = False,
 ) -> None:
     S3 = get_S3_fs()
-    csv_paths = S3.glob(ipath)
+    csv_paths = S3.glob(str(ipath))
     delayed_dfs = (load_csv(fp, suffix, dtypes) for fp in csv_paths)
     ddf: dd.DataFrame = dd.from_delayed(
         delayed_dfs,
@@ -115,10 +121,17 @@ def main(
             "menuRow": int,
         },
     )
-    ddf = ddf.repartition(partition_size="10MB")
-    ddf.to_parquet(opath, partition_on=["city", "zone"], compression="gzip")
+    dd_write_parquet(opath, ddf, remote, partition_on=["city", "zone"])
+
+
+def make_items_table() -> None:
+    csv_to_parquet(ITEM_SUFFIX, ITEM_DTYPES, ITEM_INPUT_PATH, ITEM_OUTPUT_PATH)
+
+
+def make_stores_table() -> None:
+    csv_to_parquet(STORE_SUFFIX, STORE_DTYPES, STORE_INPUT_PATH, STORE_OUTPUT_PATH)
 
 
 if __name__ == "__main__":
-    main(ITEM_SUFFIX, ITEM_DTYPES, ITEM_INPUT_PATH, ITEM_OUTPUT_PATH)
-    main(STORE_SUFFIX, STORE_DTYPES, STORE_INPUT_PATH, STORE_OUTPUT_PATH)
+    make_items_table()
+    make_stores_table()
