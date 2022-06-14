@@ -12,7 +12,6 @@ from .internal.parquetize import (
     ITEM_SUFFIX,
     csv_to_parquet,
 )
-
 from .table_model import Table
 
 IMAGES_TABLE = Table(
@@ -26,7 +25,7 @@ IMAGES_TABLE = Table(
         "zones_subpath": ZONES_SUBPATH,
         "imgs_subpath": IMGS_SUBPATH,
         "img_path_pattern": IMG_PATH_PATTERN,
-        "get_shapes": True,
+        "get_shapes": False,
     },
     columns=[
         "imgPath",
@@ -105,6 +104,6 @@ ITEMS_TABLE = Table(
 FULL_TABLE = Table(
     path=["processed"],
     base_url_position=1,
-    file_name="items",
+    file_name="dataset",
     file_format=".parquet.gzip",
 )
