@@ -1,3 +1,5 @@
+from src.features.preprocessing import prepare_dataset
+
 from .external.location_coordinates import make_coordinates_table
 from .internal.images import (
     CITIES_PATH,
@@ -12,6 +14,7 @@ from .internal.parquetize import (
     ITEM_SUFFIX,
     csv_to_parquet,
 )
+from .join_tables import join
 from .table_model import Table
 
 IMAGES_TABLE = Table(
@@ -102,8 +105,18 @@ ITEMS_TABLE = Table(
 )
 
 FULL_TABLE = Table(
-    path=["processed"],
-    base_url_position=1,
+    path=["interim"],
     file_name="dataset",
     file_format=".parquet.gzip",
+    base_url_position=1,
+    write_func=join,
+    kwargs={},
+)
+
+DATASET = Table(
+    path=["processed"],
+    file_name="dataset",
+    file_format=".parquet.gzip",
+    base_url_position=1,
+    write_func=prepare_dataset,
 )
