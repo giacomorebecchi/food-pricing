@@ -1,14 +1,9 @@
 import shutil
 
-from src.data.config import (
-    COORDINATES_TABLE,
-    DATASET,
-    FULL_TABLE,
-    IMAGES_TABLE,
-    ITEMS_TABLE,
-    Table,
-)
+from src.data.config import DATASET, FULL_TABLE
+from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
 from src.data.storage import exists, get_S3_fs
+from src.data.table_model import Table
 
 
 def download(table: Table) -> None:

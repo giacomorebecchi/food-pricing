@@ -2,7 +2,7 @@ from pathlib import PurePosixPath
 from typing import List, Set
 
 import dask.dataframe as dd
-from src.data.config import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
+from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
 from src.data.storage import dd_read_parquet, get_local_data_path, dd_write_parquet
 from src.data.table_model import Table
 
