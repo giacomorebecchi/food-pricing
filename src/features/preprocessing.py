@@ -30,5 +30,5 @@ def prepare_dataset(
         + ddf["menuRow"].astype(str)
     )
     ddf = ddf.drop(columns=["name", "description", "city", "zone", "store", "menuRow"])
-    ddf = ddf.set_index("id", partition_size="10MB")
+    ddf = ddf.set_index("item_id", partition_size="10MB")
     dd_write_parquet(opath, ddf, remote)
