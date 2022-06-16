@@ -1,8 +1,9 @@
 import shutil
 
+import yaml
 from src.data.config import DATASET, FULL_TABLE
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
-from src.data.storage import exists, get_S3_fs
+from src.data.storage import CONFIG_PATH, exists, get_S3_fs
 from src.data.table_model import Table
 
 
@@ -61,6 +62,12 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
         if remote:
             download(DATASET)
 
+        # # TODO: if in the future there will be the need to do so,
+        # # write to the config.yml file with this:
+        # config = {"dataset_remote": False, "image_remote": True}
+        # with open(CONFIG_PATH, mode="w") as f:
+        #     yaml.dump(config, f)
+
 
 if __name__ == "__main__":
-    main(overwrite=True, remote=True)
+    main(overwrite=False, remote=True)
