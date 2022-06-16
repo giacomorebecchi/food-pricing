@@ -1,9 +1,15 @@
 name: food-pricing
-channels: 
+channels:
+  - pytorch
+  - nvidia
   - conda-forge
 dependencies:
   - python=3.9
+  - nodejs
   - pip
+
+  - pip:
+    - -e .
 
   - ipython
   - ipykernel
@@ -19,7 +25,16 @@ dependencies:
   - seaborn
   - scikit-learn
   - pytorch
+  - torchvision
   - black
+  - jupyterlab_code_formatter
   - flake8
   - python-dotenv
+  - pydantic
   - lxml
+  - bokeh
+  - python-graphviz
+  - geopy
+  - tensorboard
+  - captum
+  - flask

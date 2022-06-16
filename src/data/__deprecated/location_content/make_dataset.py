@@ -1,4 +1,4 @@
-from src.data.location_content.parsing import parse_location_response
+from src.data.__deprecated.location_content.parsing import parse_location_response
 from src.data.storage import (
     build_output_path,
     build_path,
@@ -19,6 +19,7 @@ GLOB_PATH = build_path(
     "*",  # file_name
 )
 PATH_MAP = {
+    "/data/": "/data-interim/",
     "/response/": "/content/",
     ".html": ".json",
 }
