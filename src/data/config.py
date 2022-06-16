@@ -17,5 +17,20 @@ DATASET = Table(
     file_format=".parquet.gzip",
     base_url_position=1,
     write_func=prepare_dataset,
-    kwargs={},  # TODO
+    kwargs={
+        "columns": [
+            "name",
+            "description",
+            "imgPath",
+            "price_fractional",
+            "lat",
+            "lon",
+            "city",
+            "zone",
+            "store",
+            "menuRow",
+        ],
+        "drop_noimg": True,
+        "drop_nodescription": False,
+    },
 )

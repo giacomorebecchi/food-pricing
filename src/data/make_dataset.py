@@ -25,7 +25,7 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
                 print("Error: %s - %s." % (e.filename, e.strerror))
         else:
             raise Exception("Data has already been downloaded.")
-    if exists(DATASET.remote_path, local=False):
+    if exists(DATASET.remote_path, local=False) and remote and not overwrite:
         download(DATASET)
     else:
         if exists(COORDINATES_TABLE.remote_path, local=False):
@@ -56,11 +56,11 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
             )
 
         DATASET.remote = remote
-        make_table(DATASET)
+        make_table(DATASET, remote, raw_table=FULL_TABLE)
 
         if remote:
             download(DATASET)
 
 
 if __name__ == "__main__":
-    main(overwrite=False, remote=True)
+    main(overwrite=True, remote=True)

@@ -6,8 +6,8 @@ from src.data.storage import get_local_data_path, get_remote_data_path
 
 
 class Table(BaseModel):
-    path: List[str]
-    file_name: str
+    path: List[str] = []
+    file_name: str = ""
     file_format: str = ".parquet.gzip"
     base_url_position: int = None
     write_func: Optional[Callable]
