@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Dict
+from typing import Dict, Generator, List
 
 import torch
 import yaml
@@ -58,3 +58,14 @@ class FoodPricingDataset(Dataset):
             return Image.open(BytesIO(img_bytes)).convert("RGB")
         else:
             return Image.open(path).convert("RGB")
+
+    def iter_txt(self, idxs: List[int]) -> Generator:
+        for idx in idxs:
+            idx = self.index[idx]
+            yield self.data.loc[idx, "txt"].compute().values[0]
+
+    def set_txt_transform(self, txt_transform) -> None:
+        self.txt_transform = txt_transform
+
+    def set_img_transform(self, img_transform) -> None:
+        self.img_transform = img_transform
