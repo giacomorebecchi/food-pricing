@@ -1,4 +1,3 @@
-import json
 import logging
 import random
 import tempfile
@@ -43,13 +42,12 @@ class LanguageAndVisionConcat(torch.nn.Module):
         self.loss_fn = loss_fn
         self.dropout = torch.nn.Dropout(dropout_p)
 
-    def forward(self, text, image, label=None):
+    def forward(self, text, image, label=None):  # TODO: test this None default
         text_features = torch.nn.functional.relu(self.language_module(text))
         image_features = torch.nn.functional.relu(self.vision_module(image))
         combined = torch.cat([text_features, image_features], dim=1)
         fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
-        logits = self.fc(fused)
-        pred = torch.nn.functional.softmax(logits)
+        pred = self.fc(fused)
         loss = self.loss_fn(pred, label) if label is not None else label
         return (pred, loss)
 
@@ -103,11 +101,23 @@ class FPBaselineConcatModel(pl.LightningModule):
         return {"val_loss": avg_loss, "progress_bar": {"avg_val_loss": avg_loss}}
 
     def configure_optimizers(self):
-        optimizers = [
-            torch.optim.AdamW(self.model.parameters(), lr=self.hparams.get("lr", 0.001))
-        ]
-        schedulers = [torch.optim.lr_scheduler.ReduceLROnPlateau(optimizers[0])]
-        return optimizers, schedulers
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=self.hparams.get("lr", 0.001)
+        )
+        return optimizer
+
+        # TODO: Fix the scheduler
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        # return {
+        #     "optimizer": optimizer,
+        #     "lr_scheduler": {
+        #         "scheduler": scheduler,
+        #         "monitor": "metric_to_track",
+        #         "frequency": "indicates how often the metric is updated"
+        #         # If "monitor" references validation metrics, then "frequency" should be set to a
+        #         # multiple of "trainer.check_val_every_n_epoch".
+        #     },
+        # }
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
@@ -206,7 +216,7 @@ class FPBaselineConcatModel(pl.LightningModule):
         vision_module.fc = torch.nn.Linear(in_features=2048, out_features=1)
 
         return LanguageAndVisionConcat(
-            loss_fn=torch.nn.CrossEntropyLoss(),
+            loss_fn=torch.nn.MSELoss(),
             language_module=language_module,
             vision_module=vision_module,
             language_feature_dim=self.language_feature_dim,
@@ -237,9 +247,8 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
 
         trainer_params = {
-            "checkpoint_callback": checkpoint_callback,
-            "early_stop_callback": early_stop_callback,
-            "default_save_path": self.output_path,
+            "callbacks": [checkpoint_callback, early_stop_callback],
+            "default_root_dir": self.output_path,
             "accumulate_grad_batches": self.hparams.get("accumulate_grad_batches", 1),
             "gpus": self.hparams.get("n_gpu", 1),
             "max_epochs": self.hparams.get("max_epochs", 100),
