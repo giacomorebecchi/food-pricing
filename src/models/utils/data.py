@@ -47,7 +47,7 @@ class FoodPricingDataset(Dataset):
             "img": self.img_transform(img),
             "txt": self.txt_transform(txt),
             "coords": torch.Tensor([lat, lon]),
-            "label": torch.IntTensor([label]),
+            "label": torch.Tensor([label]),
         }
 
     def getimage(self, path: str) -> Image:
