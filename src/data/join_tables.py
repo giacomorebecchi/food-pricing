@@ -3,7 +3,7 @@ from typing import List, Set
 
 import dask.dataframe as dd
 from src.data.config import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
-from src.data.storage import dd_read_parquet, get_local_data_path, dd_write_parquet
+from src.data.storage import dd_read_parquet, dd_write_parquet, get_local_data_path
 from src.data.table_model import Table
 
 TABLES = [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE]
@@ -44,6 +44,7 @@ def join(
     tables: List[Table],
     opath: PurePosixPath,
     remote: bool = False,
+    # TODO: add argument train_dev_test_ratio
 ) -> None:
     assert len(tables) >= 2
     categoricals = {category for table in tables for category in table.categoricals}
@@ -53,7 +54,11 @@ def join(
         update_categories(ddf, temp_ddf, categoricals)
         cols = [col for col in tables[0].join_on if col in tables[i].join_on]
         ddf = dd.merge(left=ddf, right=temp_ddf, how="left", on=cols)
-    dd_write_parquet(opath, ddf, remote, partition_on=["city", "zone"])
+    # TODO: check correctedness of argument asserting sum == 1
+    # TODO: add categorical column "split" and fill it in with 0, 1, 2 (train, dev, test)
+    dd_write_parquet(
+        opath, ddf, remote, partition_on=["city", "zone"]
+    )  # TODO: partition on split as first partition
 
 
 if __name__ == "__main__":

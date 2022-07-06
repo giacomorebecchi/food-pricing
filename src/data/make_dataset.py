@@ -51,8 +51,11 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
             ITEMS_TABLE.remote = remote
             make_table(ITEMS_TABLE, remote)
 
+        # TODO: set random seed from argument or default = 42
         opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
-        join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote)
+        join(
+            [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote
+        )  # TODO: pass argument with train - dev - test ratio to join function
 
         if remote:
             download(FULL_TABLE)
