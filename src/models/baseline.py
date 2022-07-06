@@ -12,12 +12,11 @@ import pytorch_lightning as pl
 import torch
 import torchvision
 import tqdm
+from src.models.utils.data import FoodPricingDataset
+from src.models.utils.storage import get_local_models_path
 
-from .utils.data import FoodPricingDataset
-from .utils.storage import get_local_models_path
-
-warnings.filterwarnings("ignore")
-logging.getLogger().setLevel(logging.WARNING)
+# warnings.filterwarnings("ignore")
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 class LanguageAndVisionConcat(torch.nn.Module):
@@ -81,14 +80,17 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         preds, loss = self.forward(
-            text=batch["text"], image=batch["image"], label=batch["label"]
+            text=batch["txt"], image=batch["img"], label=batch["label"]
+        )
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
         )
 
-        return {"loss": loss}
+        return loss
 
     def validation_step(self, batch, batch_nb):
         preds, loss = self.eval().forward(
-            text=batch["text"], image=batch["image"], label=batch["label"]
+            text=batch["txt"], image=batch["img"], label=batch["label"]
         )
 
         return {"batch_val_loss": loss}
@@ -104,35 +106,32 @@ class FPBaselineConcatModel(pl.LightningModule):
         optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=self.hparams.get("lr", 0.001)
         )
-        return optimizer
-
-        # TODO: Fix the scheduler
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-        # return {
-        #     "optimizer": optimizer,
-        #     "lr_scheduler": {
-        #         "scheduler": scheduler,
-        #         "monitor": "metric_to_track",
-        #         "frequency": "indicates how often the metric is updated"
-        #         # If "monitor" references validation metrics, then "frequency" should be set to a
-        #         # multiple of "trainer.check_val_every_n_epoch".
-        #     },
-        # }
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "avg_val_loss",
+                # "frequency": "indicates how often the metric is updated"
+                # If "monitor" references validation metrics, then "frequency" should be set to a
+                # multiple of "trainer.check_val_every_n_epoch".
+            },
+        }
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
             self.train_dataset,
-            shuffle=True,
+            # shuffle=True,
             batch_size=self.hparams.get("batch_size", 4),
-            num_workers=self.hparams.get("num_workers", 16),
+            # num_workers=self.hparams.get("num_workers", 8),
         )
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
             self.dev_dataset,
-            shuffle=False,
+            # shuffle=False,
             batch_size=self.hparams.get("batch_size", 4),
-            num_workers=self.hparams.get("num_workers", 16),
+            # num_workers=self.hparams.get("num_workers", 8),
         )
 
     ## Convenience Methods ##
@@ -215,7 +214,9 @@ class FPBaselineConcatModel(pl.LightningModule):
         vision_module = torchvision.models.resnet152(pretrained=True)
         for param in vision_module.parameters():
             param.requires_grad = False
-        vision_module.fc = torch.nn.Linear(in_features=2048, out_features=1)
+        vision_module.fc = torch.nn.Linear(
+            in_features=2048, out_features=self.vision_feature_dim
+        )
 
         return LanguageAndVisionConcat(
             loss_fn=torch.nn.MSELoss(),
@@ -252,9 +253,11 @@ class FPBaselineConcatModel(pl.LightningModule):
             "callbacks": [checkpoint_callback, early_stop_callback],
             "default_root_dir": self.output_path,
             "accumulate_grad_batches": self.hparams.get("accumulate_grad_batches", 1),
-            "gpus": self.hparams.get("n_gpu", 1),
+            "accelerator": self.hparams.get("accelerator", "auto"),
+            "devices": self.hparams.get("devices", 1),
             "max_epochs": self.hparams.get("max_epochs", 100),
             "gradient_clip_val": self.hparams.get("gradient_clip_value", 1),
+            "num_sanity_val_steps": self.hparams.get("num_sanity_val_steps", 1),
         }
         return trainer_params
 
@@ -275,20 +278,42 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     @torch.no_grad()
     def make_submission_frame(self, test_path):
-        test_dataset = self._build_dataset(test_path)
         submission_frame = pd.DataFrame(
-            index=test_dataset.samples_frame.id, columns=["proba", "label"]
+            index=self.test_dataset.samples_frame.id, columns=["proba", "label"]
         )
         test_dataloader = torch.utils.data.DataLoader(
-            test_dataset,
-            shuffle=False,
+            self.test_dataset,
+            # shuffle=False,
             batch_size=self.hparams.get("batch_size", 4),
-            num_workers=self.hparams.get("num_workers", 16),
+            # num_workers=self.hparams.get("num_workers", 8),
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
-            preds, _ = self.model.eval().to("cpu")(batch["text"], batch["image"])
+            preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
             submission_frame.loc[batch["id"], "proba"] = preds[:, 1]
             submission_frame.loc[batch["id"], "label"] = preds.argmax(dim=1)
         submission_frame.proba = submission_frame.proba.astype(float)
         submission_frame.label = submission_frame.label.astype(int)
         return submission_frame
+
+
+if __name__ == "__main__":
+    hparams = {
+        # Optional hparams
+        "train_dev_test": (0.7, 0.15, 0.15),
+        "embedding_dim": 150,
+        "language_feature_dim": 300,
+        "vision_feature_dim": 300,
+        "fusion_output_size": 256,
+        "dev_limit": None,
+        "lr": 0.00005,
+        "max_epochs": 2,
+        "accelerator": "cpu",
+        "devices": 1,
+        "batch_size": 4,
+        # allows us to "simulate" having larger batches
+        "accumulate_grad_batches": 16,
+        "early_stop_patience": 3,
+        "num_sanity_val_steps": 0,
+    }
+    model = FPBaselineConcatModel(hparams)
+    model.fit()
