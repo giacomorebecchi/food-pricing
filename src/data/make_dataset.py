@@ -21,7 +21,13 @@ def make_table(table: Table, remote: bool) -> None:
     table.write_func(opath=opath, remote=table.remote, **table.kwargs)
 
 
-def main(overwrite: bool = False, remote: bool = True) -> None:
+def main(
+    overwrite: bool = False,
+    remote: bool = True,
+    train_ratio: float = 0.7,
+    dev_ratio: float = None,
+    test_ratio: float = None,
+) -> None:
     if exists(FULL_TABLE.local_path, local=True):
         if overwrite:
             try:
@@ -53,9 +59,13 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
 
         # TODO: set random seed from argument or default = 42
         opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
+        train_dev_test_ratio = (train_ratio, dev_ratio, test_ratio)
         join(
-            [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote
-        )  # TODO: pass argument with train - dev - test ratio to join function
+            [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE],
+            opath=opath,
+            remote=remote,
+            train_dev_test_ratio=train_dev_test_ratio,
+        )
 
         if remote:
             download(FULL_TABLE)
