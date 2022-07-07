@@ -31,15 +31,12 @@ def _check_train_dev_test_ratio(
     return train_ratio, dev_ratio, test_ratio
 
 
-def dd_split_df(
-    ddf: dd.DataFrame,
-    train_dev_test_ratio: Tuple[float] = (),
-    seed: int = 42,
-) -> dd.DataFrame:
+def _get_splitter(
+    n, train_dev_test_ratio: Tuple[float] = (), seed: int = 42
+) -> np.ndarray:
     train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio(
-        train_dev_test_ratio
+        *train_dev_test_ratio
     )
-    n = len(ddf)
     train_n = int(n * train_ratio)
     dev_n = int(n * dev_ratio)
     test_n = n - train_n - dev_n
@@ -53,7 +50,18 @@ def dd_split_df(
             ]
         )
     )
-    ddf = ddf.assign(split=da.array(splitter))
+    return splitter
+
+
+def dd_split_df(
+    ddf: dd.DataFrame,
+    train_dev_test_ratio: Tuple[float] = (),
+    seed: int = 42,
+) -> dd.DataFrame:
+    n = len(ddf)
+    splitter = _get_splitter(n, train_dev_test_ratio, seed)
+    lens = ddf.map_partitions(len).compute().tolist()
+    ddf = ddf.assign(split=da.from_array(splitter, chunks=lens))
     ddf.split = ddf.split.astype("category").cat.rename_categories(
         {0: "train", 1: "dev", 2: "test"}
     )
@@ -65,23 +73,8 @@ def pd_split_df(
     train_dev_test_ratio: Tuple[float] = (),
     seed: int = 42,
 ) -> pd.DataFrame:
-    train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio(
-        train_dev_test_ratio
-    )
     n = len(df)
-    train_n = int(n * train_ratio)
-    dev_n = int(n * dev_ratio)
-    test_n = n - train_n - dev_n
-    rng = np.random.default_rng(seed=seed)
-    splitter = rng.permutation(
-        np.hstack(
-            [
-                np.zeros(train_n, dtype=np.int8),
-                np.ones(dev_n, dtype=np.int8),
-                np.ones(test_n, dtype=np.int8) + 1,
-            ]
-        )
-    )
+    splitter = _get_splitter(n, train_dev_test_ratio, seed)
     df = df.assign(
         split=pd.Categorical.from_codes(splitter, categories=["test", "dev", "train"])
     )
