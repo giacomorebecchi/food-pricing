@@ -52,6 +52,7 @@ def dd_split_df(
         )
     )
     ddf = ddf.assign(split=da.array(splitter))
+    ddf.split = ddf.split.astype("category").cat.rename_categories({0: "train", 1: "dev", 2:"test"})
     return ddf
 
 
@@ -75,5 +76,7 @@ def pd_split_df(
             ]
         )
     )
-    df = df.assign(split=splitter)
+    df = df.assign(
+        split=pd.Categorical.from_codes(splitter, categories=["test", "dev", "train"])
+    )
     return df
