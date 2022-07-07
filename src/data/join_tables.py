@@ -2,11 +2,11 @@ from pathlib import PurePosixPath
 from typing import List, Set
 
 import dask.dataframe as dd
-from src.data.config import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
-from src.data.storage import dd_read_parquet, get_local_data_path, dd_write_parquet
+from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
+from src.data.storage import dd_read_parquet, dd_write_parquet, get_local_data_path
 from src.data.table_model import Table
 
-TABLES = [ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE]
+TABLES = [ITEMS_TABLE.copy(), COORDINATES_TABLE.copy(), IMAGES_TABLE.copy()]
 for table in TABLES:
     table.remote = False
 

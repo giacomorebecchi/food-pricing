@@ -227,3 +227,6 @@ def dd_read_parquet(
         storage_options=storage_options,
         columns=columns,
     )
+
+
+CONFIG_PATH = get_local_data_path(path=[], file_name="config", file_format=".yml")

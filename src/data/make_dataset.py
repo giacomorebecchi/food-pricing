@@ -1,14 +1,10 @@
 import shutil
 
-from src.data.config import (
-    COORDINATES_TABLE,
-    FULL_TABLE,
-    IMAGES_TABLE,
-    ITEMS_TABLE,
-    Table,
-)
-from src.data.join_tables import join
-from src.data.storage import exists, get_S3_fs
+import yaml
+from src.data.config import DATASET, FULL_TABLE
+from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
+from src.data.storage import CONFIG_PATH, exists, get_S3_fs
+from src.data.table_model import Table
 
 
 def download(table: Table) -> None:
@@ -16,22 +12,34 @@ def download(table: Table) -> None:
     S3.download(str(table.remote_path), str(table.local_path), recursive=True)
 
 
-def make_table(table: Table, remote: bool) -> None:
+def make_table(table: Table, remote: bool, **kwargs) -> None:
     opath = table.remote_path if remote else table.local_path
-    table.write_func(opath=opath, remote=table.remote, **table.kwargs)
+    table.write_func(opath=opath, remote=table.remote, **table.kwargs, **kwargs)
 
 
-def main(overwrite: bool = False, remote: bool = True) -> None:
-    if exists(FULL_TABLE.local_path, local=True):
+def main(
+    overwrite: bool = False,
+    remote: bool = True,
+    train_ratio: float = 0.7,
+    dev_ratio: float = None,
+    test_ratio: float = None,
+    seed: int = 42,
+) -> None:
+    if exists(DATASET.local_path, local=True):
         if overwrite:
+            # delete the table
             try:
-                shutil.rmtree(FULL_TABLE.local_path)
+                shutil.rmtree(DATASET.local_path)
             except OSError as e:
                 print("Error: %s - %s." % (e.filename, e.strerror))
         else:
+            # TODO: check that the partition ratios are respected, else
+            # load the table, overwrite the partition and overwrite the table
             raise Exception("Data has already been downloaded.")
-    if exists(FULL_TABLE.remote_path, local=False):
-        download(FULL_TABLE)
+    if exists(DATASET.remote_path, local=False) and remote and not overwrite:
+        download(DATASET)
+        # TODO: check that the partition ratios are respected, else
+        # load the table, overwrite the partition and overwrite the table
     else:
         if exists(COORDINATES_TABLE.remote_path, local=False):
             pass
@@ -51,11 +59,33 @@ def main(overwrite: bool = False, remote: bool = True) -> None:
             ITEMS_TABLE.remote = remote
             make_table(ITEMS_TABLE, remote)
 
-        opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
-        join([ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE], opath=opath, remote=remote)
+        if exists(FULL_TABLE.remote_path, local=False):
+            pass
+        else:
+            make_table(
+                table=FULL_TABLE,
+                remote=remote,
+                tables=[ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE],
+            )
+
+        DATASET.remote = remote
+        train_dev_test_ratio = (train_ratio, dev_ratio, test_ratio)
+        make_table(
+            DATASET,
+            remote,
+            raw_table=FULL_TABLE,
+            train_dev_test_ratio=train_dev_test_ratio,
+            seed=seed,
+        )
 
         if remote:
-            download(FULL_TABLE)
+            download(DATASET)
+
+        # # TODO: if in the future there will be the need to do so,
+        # # write to the config.yml file with this:
+        # config = {"dataset_remote": False, "image_remote": True}
+        # with open(CONFIG_PATH, mode="w") as f:
+        #     yaml.dump(config, f)
 
 
 if __name__ == "__main__":
