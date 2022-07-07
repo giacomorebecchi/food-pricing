@@ -41,7 +41,7 @@ def read_categorical_parquet(
 
 
 def _check_train_dev_test_ratio(
-    train_ratio: float = 0.7, dev_ratio: float = 0.15, test_ratio: float = None
+    train_ratio: float = 0.7, dev_ratio: float = None, test_ratio: float = None
 ) -> Tuple[float]:
     def check_value(var_name: str, val: float) -> None:
         if not (isinstance(val, float) and 0 < val < 1):
@@ -50,9 +50,13 @@ def _check_train_dev_test_ratio(
             )
 
     check_value("train_ratio", train_ratio)
-    check_value("dev_ratio", dev_ratio)
     if test_ratio is None:
-        test_ratio = 1 - train_ratio - dev_ratio
+        if dev_ratio is None:
+            # default: dev and test datasets have the same size
+            dev_ratio = test_ratio = (1 - train_ratio) / 2
+        else:
+            check_value("dev_ratio", dev_ratio)
+            test_ratio = 1 - train_ratio - dev_ratio
     check_value("test_ratio", test_ratio)
     if abs(train_ratio + dev_ratio + test_ratio - 1) > 1e-07:
         raise ValueError("The sum of the train, dev and test ratio must be equal to 1.")
