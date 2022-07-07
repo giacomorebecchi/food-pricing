@@ -36,12 +36,14 @@ def dd_split_df(
     train_dev_test_ratio: Tuple[float] = (),
     seed: int = 42,
 ) -> dd.DataFrame:
-    train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio()
+    train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio(
+        train_dev_test_ratio
+    )
     n = len(ddf)
     train_n = int(n * train_ratio)
     dev_n = int(n * dev_ratio)
     test_n = n - train_n - dev_n
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=seed)
     splitter = rng.permutation(
         np.hstack(
             [
@@ -52,7 +54,9 @@ def dd_split_df(
         )
     )
     ddf = ddf.assign(split=da.array(splitter))
-    ddf.split = ddf.split.astype("category").cat.rename_categories({0: "train", 1: "dev", 2:"test"})
+    ddf.split = ddf.split.astype("category").cat.rename_categories(
+        {0: "train", 1: "dev", 2: "test"}
+    )
     return ddf
 
 
@@ -61,12 +65,14 @@ def pd_split_df(
     train_dev_test_ratio: Tuple[float] = (),
     seed: int = 42,
 ) -> pd.DataFrame:
-    train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio()
+    train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio(
+        train_dev_test_ratio
+    )
     n = len(df)
     train_n = int(n * train_ratio)
     dev_n = int(n * dev_ratio)
     test_n = n - train_n - dev_n
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=seed)
     splitter = rng.permutation(
         np.hstack(
             [
