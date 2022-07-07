@@ -1,6 +1,8 @@
 from pathlib import PurePosixPath
 from typing import List, Tuple, Union
 
+from src.features.split_dataset import dd_split_df
+
 from ..data.storage import dd_read_parquet, dd_write_parquet
 from ..data.table_model import Table
 
@@ -33,5 +35,5 @@ def prepare_dataset(
     )
     ddf = ddf.drop(columns=["name", "description", "city", "zone", "store", "menuRow"])
     ddf = ddf.set_index("item_id", partition_size="10MB")
-    # TODO: insert "split" categorical column with train, dev and test
-    dd_write_parquet(opath, ddf, remote)  # TODO: partition on "split"
+    ddf = dd_split_df(ddf, train_dev_test_ratio, seed)
+    dd_write_parquet(opath, ddf, remote, ["split"])
