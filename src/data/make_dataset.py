@@ -31,14 +31,19 @@ def main(
 ) -> None:
     if exists(FULL_TABLE.local_path, local=True):
         if overwrite:
+            # delete the table
             try:
                 shutil.rmtree(FULL_TABLE.local_path)
             except OSError as e:
                 print("Error: %s - %s." % (e.filename, e.strerror))
         else:
+            # TODO: check that the partition ratios are respected, else
+            # load the table, overwrite the partition and overwrite the table
             raise Exception("Data has already been downloaded.")
     if exists(FULL_TABLE.remote_path, local=False):
         download(FULL_TABLE)
+        # TODO: check that the partition ratios are respected, else
+        # load the table, overwrite the partition and overwrite the table
     else:
         if exists(COORDINATES_TABLE.remote_path, local=False):
             pass
