@@ -27,6 +27,7 @@ def main(
     train_ratio: float = 0.7,
     dev_ratio: float = None,
     test_ratio: float = None,
+    seed: int = 42,
 ) -> None:
     if exists(FULL_TABLE.local_path, local=True):
         if overwrite:
@@ -57,7 +58,6 @@ def main(
             ITEMS_TABLE.remote = remote
             make_table(ITEMS_TABLE, remote)
 
-        # TODO: set random seed from argument or default = 42
         opath = FULL_TABLE.remote_path if remote else FULL_TABLE.local_path
         train_dev_test_ratio = (train_ratio, dev_ratio, test_ratio)
         join(
@@ -65,6 +65,7 @@ def main(
             opath=opath,
             remote=remote,
             train_dev_test_ratio=train_dev_test_ratio,
+            seed=seed,
         )
 
         if remote:

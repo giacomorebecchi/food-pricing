@@ -68,6 +68,7 @@ def join(
     opath: PurePosixPath,
     remote: bool = False,
     train_dev_test_ratio: Tuple[float] = (),
+    seed: int = 42
 ) -> None:
     assert len(tables) >= 2
     categoricals = {category for table in tables for category in table.categoricals}
@@ -80,6 +81,7 @@ def join(
     train_ratio, dev_ratio, test_ratio = _check_train_dev_test_ratio(
         *train_dev_test_ratio
     )
+    # TODO: set seed
     # TODO: add categorical column "split" and fill it in with 0, 1, 2 (train, dev, test)
     dd_write_parquet(
         opath, ddf, remote, partition_on=["city", "zone"]
