@@ -1,6 +1,6 @@
 import shutil
 
-from src.data.config import DATASET, FULL_TABLE
+from src.data.config import DATASET, FULL_TABLE, TXT_TRAIN
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
 from src.data.storage import exists, get_S3_fs
 from src.data.table_model import DataObject
@@ -15,6 +15,12 @@ def clean_dataobj(dataobj: DataObject):
 
 
 if __name__ == "__main__":
-    for table in [COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE, FULL_TABLE, DATASET]:
-        clean_dataobj(table)
-    # TODO: add txt file here
+    for obj in [
+        # COORDINATES_TABLE,
+        # IMAGES_TABLE,
+        # ITEMS_TABLE,
+        # FULL_TABLE,
+        DATASET,
+        TXT_TRAIN,
+    ]:
+        clean_dataobj(obj)
