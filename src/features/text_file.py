@@ -1,4 +1,3 @@
-# TODO: create function to read the DATASET and store text
 from pathlib import PurePosixPath
 from typing import List, Union
 

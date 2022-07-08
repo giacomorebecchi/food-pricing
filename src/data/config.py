@@ -36,7 +36,6 @@ DATASET = Table(
     },
 )
 
-# TODO: add a TXT_TRAIN object of class TextFile
 TXT_TRAIN = DataObject(
     path=["processed"],
     file_name="train",

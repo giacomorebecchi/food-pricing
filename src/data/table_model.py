@@ -4,8 +4,6 @@ from typing import Callable, Dict, List, Optional
 from pydantic import BaseModel, validator
 from src.data.storage import get_local_data_path, get_remote_data_path
 
-# TODO: create generic DataObject class, and let Table and TextFile inherit from it
-
 
 class DataObject(BaseModel):
     path: List[str] = []
