@@ -93,12 +93,13 @@ def main(
         if remote:
             download(TXT_TRAIN)
 
-        # TODO: uncomment this and add txt_remote and txt_created
-        # # TODO: if in the future there will be the need to do so,
-        # # write to the config.yml file with this:
-        # config = {"dataset_remote": False, "image_remote": True}
-        # with open(CONFIG_PATH, mode="w") as f:
-        #     yaml.dump(config, f)
+        config = {
+            "dataset_remote": False,
+            "txt_created": create_train_txt,
+            "img_remote": True,
+        }
+        with open(CONFIG_PATH, mode="w") as f:
+            yaml.dump(config, f)
 
 
 if __name__ == "__main__":
