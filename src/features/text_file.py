@@ -12,7 +12,9 @@ def create_txt(
     columns: Union[List[str], None] = None,
 ):
     path = raw_table.remote_path if raw_table.remote else raw_table.local_path
-    ddf = dd_read_parquet(path, raw_table.remote, columns)
+    ddf = dd_read_parquet(
+        path, raw_table.remote, columns
+    )  # TODO: select only "split=train"
     if (oformat := opath.suffix) != ".txt":
         raise Exception(f"Unsupported text file format {oformat}. Use .txt")
     if remote:
