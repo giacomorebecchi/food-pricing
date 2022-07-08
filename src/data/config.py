@@ -44,5 +44,10 @@ TXT_TRAIN = DataObject(
     write_func=create_txt,
     kwargs={
         "columns": ["txt"],
+        "filters": [
+            [
+                ("split", "==", "train"),
+            ],
+        ],
     },
 )

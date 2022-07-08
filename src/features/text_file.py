@@ -1,5 +1,5 @@
 from pathlib import PurePosixPath
-from typing import List, Union
+from typing import Any, List, Tuple, Union
 
 from ..data.storage import dd_read_parquet, get_S3_fs
 from ..data.table_model import Table
@@ -10,11 +10,15 @@ def create_txt(
     remote: bool = False,
     raw_table: Table = Table(),
     columns: Union[List[str], None] = None,
+    filters: Union[List[List[Tuple[str, str, Any]]], None] = None,
 ):
     path = raw_table.remote_path if raw_table.remote else raw_table.local_path
     ddf = dd_read_parquet(
-        path, raw_table.remote, columns
-    )  # TODO: select only "split=train"
+        path,
+        raw_table.remote,
+        columns,
+        filters=filters,
+    )
     if (oformat := opath.suffix) != ".txt":
         raise Exception(f"Unsupported text file format {oformat}. Use .txt")
     if remote:
