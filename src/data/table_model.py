@@ -7,7 +7,7 @@ from src.data.storage import get_local_data_path, get_remote_data_path
 # TODO: create generic DataObject class, and let Table and TextFile inherit from it
 
 
-class Table(BaseModel):
+class DataObject(BaseModel):
     path: List[str] = []
     file_name: str = ""
     file_format: str = ".parquet.gzip"
@@ -16,8 +16,6 @@ class Table(BaseModel):
     kwargs: Dict = {}
     remote: bool = True
     columns: Optional[List[str]]
-    join_on: List[str] = []
-    categoricals: List[str] = []
     local_path: PurePosixPath = None
     remote_path: PurePosixPath = None
 
@@ -27,13 +25,6 @@ class Table(BaseModel):
             raise Exception(
                 "Position for the base url in path is greater than the length of the path itself."
             )
-        return v
-
-    @validator("join_on", "categoricals")
-    def check_in_columns(cls, v, values):
-        for col in v:
-            if col not in values["columns"]:
-                raise Exception(f"{col} is not part of the columns")
         return v
 
     def __init__(self, **kwargs):
@@ -47,3 +38,15 @@ class Table(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+class Table(DataObject):
+    join_on: List[str] = []
+    categoricals: List[str] = []
+
+    @validator("join_on", "categoricals")
+    def check_in_columns(cls, v, values):
+        for col in v:
+            if col not in values["columns"]:
+                raise Exception(f"{col} is not part of the columns")
+        return v
