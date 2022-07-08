@@ -34,3 +34,5 @@ DATASET = Table(
         "drop_nodescription": False,
     },
 )
+
+# TODO: add a TXT_TRAIN object of class TextFile
