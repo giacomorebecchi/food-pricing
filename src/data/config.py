@@ -37,7 +37,7 @@ DATASET = Table(
 )
 
 TXT_TRAIN = DataObject(
-    path=["processed"],
+    path=["processed", "txt"],
     file_name="train",
     file_format=".txt",
     base_url_position=1,
