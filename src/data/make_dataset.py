@@ -21,7 +21,7 @@ def main(
     overwrite: bool = False,
     remote: bool = True,
     create_train_txt: bool = True,
-    # TODO: add argument to download thumbnails
+    download_thumbnails: bool = True,
     train_ratio: float = 0.7,
     dev_ratio: float = None,
     test_ratio: float = None,
@@ -94,12 +94,13 @@ def main(
         if remote:
             download(TXT_TRAIN)
 
-        # TODO: add command to download thumbnails with condition
+        if download_thumbnails:
+            pass  # TODO: add command to download thumbnails
 
         config = {
             "dataset_remote": False,
             "txt_created": create_train_txt,
-            "img_remote": True,  # TODO: change with argument
+            "img_remote": download_thumbnails,
         }
         with open(CONFIG_PATH, mode="w") as f:
             yaml.dump(config, f)
