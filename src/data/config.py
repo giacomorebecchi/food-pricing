@@ -51,3 +51,5 @@ TXT_TRAIN = DataObject(
         ],
     },
 )
+
+# TODO: add IMAGES DataObject

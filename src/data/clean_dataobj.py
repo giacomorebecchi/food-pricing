@@ -26,5 +26,6 @@ if __name__ == "__main__":
         # FULL_TABLE,
         DATASET,
         TXT_TRAIN,
+        # TODO: Add IMAGES (commented out)
     ]:
         clean_dataobj(obj)
