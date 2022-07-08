@@ -22,10 +22,16 @@ def create_txt(
         f = S3.open(opath, mode="w")
     else:
         f = open(opath, mode="w")
-    for col in columns:
-        for row in ddf.index:
-            line = ddf.loc[row, col]
-            if not isinstance(str, line):
-                raise Exception(f"Line in row: {row}, col: {col} is not a string.")
-            f.write(line + "\n")
-    f.close()
+    try:
+        for _, row in ddf.iterrows():
+            for col in columns:
+                line = row[col]
+                if not isinstance(line, str):
+                    raise Exception(
+                        f"Line: {line} in row: {row.name}, col: {col} is not a string."
+                    )
+                f.write(line + "\n")
+        f.close()
+    except Exception as e:
+        f.close()
+        raise e

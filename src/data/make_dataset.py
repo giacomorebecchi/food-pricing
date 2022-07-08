@@ -79,6 +79,9 @@ def main(
             seed=seed,
         )
 
+        if remote:
+            download(DATASET)
+
         if create_train_txt:
             TXT_TRAIN.remote = remote
             make_dataobj(
@@ -88,7 +91,7 @@ def main(
             )
 
         if remote:
-            download(DATASET)
+            download(TXT_TRAIN)
 
         # TODO: uncomment this and add txt_remote and txt_created
         # # TODO: if in the future there will be the need to do so,
