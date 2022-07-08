@@ -1,2 +1,3 @@
-dataset_remote: False
-img_remote: True
+dataset_remote: false
+img_remote: true
+txt_created: true

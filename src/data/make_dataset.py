@@ -1,25 +1,26 @@
 import shutil
 
 import yaml
-from src.data.config import DATASET, FULL_TABLE
+from src.data.config import DATASET, FULL_TABLE, TXT_TRAIN
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
 from src.data.storage import CONFIG_PATH, exists, get_S3_fs
-from src.data.table_model import Table
+from src.data.table_model import DataObject
 
 
-def download(table: Table) -> None:
+def download(dataobj: DataObject) -> None:
     S3 = get_S3_fs()
-    S3.download(str(table.remote_path), str(table.local_path), recursive=True)
+    S3.download(str(dataobj.remote_path), str(dataobj.local_path), recursive=True)
 
 
-def make_table(table: Table, remote: bool, **kwargs) -> None:
-    opath = table.remote_path if remote else table.local_path
-    table.write_func(opath=opath, remote=table.remote, **table.kwargs, **kwargs)
+def make_dataobj(dataobj: DataObject, remote: bool, **kwargs) -> None:
+    opath = dataobj.remote_path if remote else dataobj.local_path
+    dataobj.write_func(opath=opath, remote=dataobj.remote, **dataobj.kwargs, **kwargs)
 
 
 def main(
     overwrite: bool = False,
     remote: bool = True,
+    create_train_txt: bool = True,
     train_ratio: float = 0.7,
     dev_ratio: float = None,
     test_ratio: float = None,
@@ -45,24 +46,24 @@ def main(
             pass
         else:
             COORDINATES_TABLE.remote = remote
-            make_table(COORDINATES_TABLE, remote)
+            make_dataobj(COORDINATES_TABLE, remote)
 
         if exists(IMAGES_TABLE.remote_path, local=False):
             pass
         else:
             IMAGES_TABLE.remote = remote
-            make_table(IMAGES_TABLE, remote)
+            make_dataobj(IMAGES_TABLE, remote)
 
         if exists(ITEMS_TABLE.remote_path, local=False):
             pass
         else:
             ITEMS_TABLE.remote = remote
-            make_table(ITEMS_TABLE, remote)
+            make_dataobj(ITEMS_TABLE, remote)
 
         if exists(FULL_TABLE.remote_path, local=False):
             pass
         else:
-            make_table(
+            make_dataobj(
                 table=FULL_TABLE,
                 remote=remote,
                 tables=[ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE],
@@ -70,7 +71,7 @@ def main(
 
         DATASET.remote = remote
         train_dev_test_ratio = (train_ratio, dev_ratio, test_ratio)
-        make_table(
+        make_dataobj(
             DATASET,
             remote,
             raw_table=FULL_TABLE,
@@ -81,11 +82,24 @@ def main(
         if remote:
             download(DATASET)
 
-        # # TODO: if in the future there will be the need to do so,
-        # # write to the config.yml file with this:
-        # config = {"dataset_remote": False, "image_remote": True}
-        # with open(CONFIG_PATH, mode="w") as f:
-        #     yaml.dump(config, f)
+        if create_train_txt:
+            TXT_TRAIN.remote = remote
+            make_dataobj(
+                TXT_TRAIN,
+                remote,
+                raw_table=DATASET,
+            )
+
+        if remote:
+            download(TXT_TRAIN)
+
+        config = {
+            "dataset_remote": False,
+            "txt_created": create_train_txt,
+            "img_remote": True,
+        }
+        with open(CONFIG_PATH, mode="w") as f:
+            yaml.dump(config, f)
 
 
 if __name__ == "__main__":

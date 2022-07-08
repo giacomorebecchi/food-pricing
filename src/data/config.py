@@ -1,6 +1,7 @@
 from ..features.preprocessing import prepare_dataset
+from ..features.text_file import create_txt
 from .join_tables import join
-from .table_model import Table
+from .table_model import DataObject, Table
 
 FULL_TABLE = Table(
     path=["interim"],
@@ -32,5 +33,21 @@ DATASET = Table(
         ],
         "drop_noimg": True,
         "drop_nodescription": False,
+    },
+)
+
+TXT_TRAIN = DataObject(
+    path=["processed", "txt"],
+    file_name="train",
+    file_format=".txt",
+    base_url_position=1,
+    write_func=create_txt,
+    kwargs={
+        "columns": ["txt"],
+        "filters": [
+            [
+                ("split", "==", "train"),
+            ],
+        ],
     },
 )
