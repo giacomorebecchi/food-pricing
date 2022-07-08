@@ -199,6 +199,7 @@ def dd_write_parquet(
     ddf: dd.DataFrame,
     remote: bool = False,
     partition_on: List[str] = None,
+    **kwargs,
 ) -> None:
     storage_options = (
         {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
@@ -211,11 +212,15 @@ def dd_write_parquet(
         storage_options=storage_options,
         compression="gzip",
         partition_on=partition_on,
+        **kwargs,
     )
 
 
 def dd_read_parquet(
-    path: PurePosixPath, remote: bool = False, columns: List[str] = None
+    path: PurePosixPath,
+    remote: bool = False,
+    columns: List[str] = None,
+    **kwargs,
 ) -> dd.DataFrame:
     storage_options = (
         {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
@@ -226,6 +231,7 @@ def dd_read_parquet(
         path="s3://" * remote + str(path),
         storage_options=storage_options,
         columns=columns,
+        **kwargs,
     )
 
 
