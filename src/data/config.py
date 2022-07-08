@@ -1,3 +1,4 @@
+from ..features.images import download_thumbnails
 from ..features.preprocessing import prepare_dataset
 from ..features.text_file import create_txt
 from .join_tables import join
@@ -52,4 +53,14 @@ TXT_TRAIN = DataObject(
     },
 )
 
-# TODO: add IMAGES DataObject
+IMAGES = DataObject(
+    path=["processed", "img"],
+    file_name="",
+    file_format="",
+    write_func=download_thumbnails,
+    remote=False,
+    kwargs={
+        "imgPath_column": "imgPath",
+        "size": (450, 450),
+    },
+)  # TODO: complete IMAGES DataObject
