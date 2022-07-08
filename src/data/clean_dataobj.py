@@ -1,3 +1,4 @@
+import os
 import shutil
 
 from src.data.config import DATASET, FULL_TABLE, TXT_TRAIN
@@ -11,7 +12,10 @@ def clean_dataobj(dataobj: DataObject):
         S3 = get_S3_fs()
         S3.rm(str(dataobj.remote_path), recursive=True, maxdepth=None)
     if exists(dataobj.local_path, local=True):
-        shutil.rmtree(dataobj.local_path)
+        if os.path.isdir(dataobj.local_path):
+            shutil.rmtree(dataobj.local_path)
+        elif os.path.isfile(dataobj.local_path):
+            os.remove(dataobj.local_path)
 
 
 if __name__ == "__main__":
