@@ -101,7 +101,7 @@ class FoodPricingDataset(Dataset):
     def get_local_thumbnail(
         self, local_path: str = "", remote_path: str = "", name: str = ""
     ) -> Image:
-        path = PurePosixPath(IMAGES.local_path).joinpath(name).with_suffix(".jpg")
+        path = str(PurePosixPath(IMAGES.local_path).joinpath(name).with_suffix(".jpg"))
         return Image.open(path)
 
     def iter_txt(self, idxs: List[int]) -> Generator:
