@@ -22,6 +22,8 @@ def save_img(
         img_byte_str = f_img.read()
     with Image.open(BytesIO(img_byte_str)) as im:
         try:
+            if im.mode in ("RGBA", "P"):
+                im = im.convert("RGB")
             im.thumbnail(size)
             im.save(str(img_opath), "JPEG")
         except Exception as e:
