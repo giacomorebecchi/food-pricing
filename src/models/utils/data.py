@@ -37,7 +37,7 @@ class FoodPricingDataset(Dataset):
         dataset_path = (
             DATASET.remote_path if self.dataset_remote else DATASET.local_path
         )
-        filters = [["split", "==", split]] if split else None
+        filters = [[("split", "==", split)]] if split else None
         self.data = dd_read_parquet(
             dataset_path,
             self.dataset_remote,
