@@ -11,7 +11,7 @@ def create_txt(
     raw_table: Table = Table(),
     columns: Union[List[str], None] = None,
     filters: Union[List[List[Tuple[str, str, Any]]], None] = None,
-):
+) -> None:
     path = raw_table.remote_path if raw_table.remote else raw_table.local_path
     ddf = dd_read_parquet(
         path,
