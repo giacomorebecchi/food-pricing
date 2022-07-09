@@ -108,9 +108,3 @@ class FoodPricingDataset(Dataset):
         for idx in idxs:
             idx = self.index[idx]
             yield self.data.loc[idx, "txt"].compute().values[0]
-
-    def set_txt_transform(self, txt_transform) -> None:
-        self.txt_transform = txt_transform
-
-    def set_img_transform(self, img_transform) -> None:
-        self.img_transform = img_transform

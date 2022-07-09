@@ -1,9 +1,10 @@
 import logging
+import os
 import random
 import tempfile
 import warnings
 from pathlib import PurePosixPath
-from typing import List, Tuple
+from typing import Dict, List
 
 import fasttext
 import numpy as np
@@ -12,6 +13,9 @@ import pytorch_lightning as pl
 import torch
 import torchvision
 import tqdm
+import yaml
+from src.data.config import TXT_TRAIN
+from src.data.storage import CONFIG_PATH
 from src.models.utils.data import FoodPricingDataset
 from src.models.utils.storage import get_local_models_path
 
@@ -41,10 +45,10 @@ class LanguageAndVisionConcat(torch.nn.Module):
         self.loss_fn = loss_fn
         self.dropout = torch.nn.Dropout(dropout_p)
 
-    def forward(self, text, image, label=None):  # TODO: test this None default
+    def forward(self, text, img, label=None):  # TODO: test this None default
         text_features = torch.nn.functional.relu(self.language_module(text))
-        image_features = torch.nn.functional.relu(self.vision_module(image))
-        combined = torch.cat([text_features, image_features], dim=1)
+        img_features = torch.nn.functional.relu(self.vision_module(img))
+        combined = torch.cat([text_features, img_features], dim=1)
         fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
         pred = self.fc(fused)
         loss = self.loss_fn(pred, label) if label is not None else label
@@ -56,6 +60,8 @@ class FPBaselineConcatModel(pl.LightningModule):
         super(FPBaselineConcatModel, self).__init__()
         self.hparams.update(hparams)
 
+        self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
+
         # assign some hparams that get used in multiple places
         self.embedding_dim = self.hparams.get("embedding_dim", 300)
         self.language_feature_dim = self.hparams.get("language_feature_dim", 300)
@@ -66,8 +72,13 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
         self.output_path = self._get_path(path=["model-outputs"])
 
+        # build transform models
+        self.txt_transform = self._build_txt_transform()
+        self.img_transform = self._build_img_transform()
+
         # instantiate dataset
-        self._build_dataset()
+        self.train_dataset = self._build_dataset("train")
+        self.dev_dataset = self._build_dataset("dev")
 
         # set up model and training
         self.model = self._build_model()
@@ -75,12 +86,12 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     ## Required LightningModule Methods (when validating) ##
 
-    def forward(self, text, image, label=None):
-        return self.model(text, image, label)
+    def forward(self, text, img, label=None):
+        return self.model(text, img, label)
 
     def training_step(self, batch, batch_nb):
         preds, loss = self.forward(
-            text=batch["txt"], image=batch["img"], label=batch["label"]
+            text=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
             "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
@@ -90,7 +101,7 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         preds, loss = self.eval().forward(
-            text=batch["txt"], image=batch["img"], label=batch["label"]
+            text=batch["txt"], img=batch["img"], label=batch["label"]
         )
 
         return {"batch_val_loss": loss}
@@ -148,24 +159,32 @@ class FPBaselineConcatModel(pl.LightningModule):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def _build_text_transform(self):
-        with tempfile.NamedTemporaryFile() as ft_training_data:
-            ft_path = PurePosixPath(ft_training_data.name)
-            with open(ft_path, "w") as ft:
-                for line in self.dataset.iter_txt(self.train_dataset.indices):
-                    ft.write(line + "\n")
-                language_transform = fasttext.train_unsupervised(
-                    str(ft_path),
-                    model=self.hparams.get("fasttext_model", "cbow"),
-                    dim=self.embedding_dim,
-                )
+    def _build_txt_transform(self):
+        if self.config.get("txt_created", False):
+            ft_path = TXT_TRAIN.local_path
+            language_transform = fasttext.train_unsupervised(
+                str(ft_path),
+                model=self.hparams.get("fasttext_model", "cbow"),
+                dim=self.embedding_dim,
+            )
+        else:
+            with tempfile.NamedTemporaryFile() as ft_training_data:
+                ft_path = PurePosixPath(ft_training_data.name)
+                with open(ft_path, "w") as ft:
+                    for line in self.train_dataset.iter_txt():
+                        ft.write(line + "\n")
+                    language_transform = fasttext.train_unsupervised(
+                        str(ft_path),
+                        model=self.hparams.get("fasttext_model", "cbow"),
+                        dim=self.embedding_dim,
+                    )
         return language_transform.get_sentence_vector
 
-    def _build_image_transform(self):
-        image_dim = self.hparams.get("image_dim", 224)
-        image_transform = torchvision.transforms.Compose(
+    def _build_img_transform(self):
+        img_dim = self.hparams.get("img_dim", 224)
+        img_transform = torchvision.transforms.Compose(
             [
-                torchvision.transforms.Resize(size=(image_dim, image_dim)),
+                torchvision.transforms.Resize(size=(img_dim, img_dim)),
                 torchvision.transforms.ToTensor(),
                 # all torchvision models expect the same
                 # normalization mean and std
@@ -175,29 +194,14 @@ class FPBaselineConcatModel(pl.LightningModule):
                 ),
             ]
         )
-        return image_transform
+        return img_transform
 
-    def _build_dataset(self) -> None:
-        self.text_transform = lambda x: x
-        self.image_transform = self._build_image_transform()
-        self.dataset = FoodPricingDataset(
-            img_transform=self.image_transform,
-            txt_transform=self.text_transform,
+    def _build_dataset(self, split: str) -> FoodPricingDataset:
+        return FoodPricingDataset(
+            img_transform=self.img_transform,
+            txt_transform=self.txt_transform,
+            split=split,
         )
-        train_len, dev_len, test_len = self._calculate_dataset_ratio()
-        (
-            self.train_dataset,
-            self.dev_dataset,
-            self.test_dataset,
-        ) = torch.utils.data.random_split(
-            self.dataset,
-            [train_len, dev_len, test_len],
-            generator=torch.Generator().manual_seed(
-                (self.hparams.get("random_state", 42))
-            ),
-        )
-        self.txt_transform = self._build_text_transform()
-        self.dataset.set_txt_transform(self.txt_transform)
 
     def _build_model(self):
         # we're going to pass the outputs of our text
@@ -261,25 +265,11 @@ class FPBaselineConcatModel(pl.LightningModule):
         }
         return trainer_params
 
-    def _calculate_dataset_ratio(self) -> Tuple[int]:
-        try:
-            train_ratio, dev_ratio, test_ratio = self.hparams.get("train_dev_test")
-            assert train_ratio + dev_ratio + test_ratio == 1.0
-        except AssertionError:
-            raise Exception(
-                "Invalid hyperparameter train_dev_test. Ensure the sum of the three numbers is 1.0"
-            )
-        except ValueError:
-            raise Exception("Expected Tuple of three numbers")
-        dev_len = int((len_dataset := len(self.dataset)) * dev_ratio)
-        test_len = int(len_dataset * test_ratio)
-        train_len = len_dataset - dev_len - test_len
-        return train_len, dev_len, test_len
-
     @torch.no_grad()
-    def make_submission_frame(self, test_path):
+    def make_submission_frame(self) -> pd.DataFrame:
+        self.test_dataset = self._build_dataset("test")
         submission_frame = pd.DataFrame(
-            index=self.test_dataset.samples_frame.id, columns=["proba", "label"]
+            index=self.test_dataset.index, columns=["proba", "label"]
         )
         test_dataloader = torch.utils.data.DataLoader(
             self.test_dataset,
@@ -289,10 +279,7 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
             preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
-            submission_frame.loc[batch["id"], "proba"] = preds[:, 1]
-            submission_frame.loc[batch["id"], "label"] = preds.argmax(dim=1)
-        submission_frame.proba = submission_frame.proba.astype(float)
-        submission_frame.label = submission_frame.label.astype(int)
+            submission_frame.loc[batch["id"], "label"] = preds
         return submission_frame
 
 
