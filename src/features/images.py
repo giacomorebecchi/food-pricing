@@ -30,6 +30,7 @@ def save_img(
             im.save(str(img_opath), "JPEG")
         except Exception as e:
             print(f"Not able to download image {s[imgPath_column]}", e)
+            im.save(str(img_opath))  # in case of failure, download full image
 
 
 def download_thumbnails(
