@@ -59,9 +59,10 @@ class FoodPricingDataset(Dataset):
             idx = idx.tolist()
         idx = self.index[idx]
         ddf = self.data.loc[idx, :].compute()
+        img_path = ddf.loc[idx, "imgPath"]
         img = self.get_img(
-            local_path=ddf.loc[idx, "imgPath"],
-            remote_path=ddf.loc[idx, "imgPath"],
+            local_path=img_path,
+            remote_path=img_path,
             name=idx,
         )
         txt = ddf.loc[idx, "txt"]
