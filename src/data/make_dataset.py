@@ -4,7 +4,7 @@ import yaml
 from src.data.config import DATASET, FULL_TABLE, IMAGES, TXT_TRAIN
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
 from src.data.storage import CONFIG_PATH, exists, get_S3_fs
-from src.data.table_model import DataObject
+from src.data.dataobj_model import DataObject
 
 
 def download(dataobj: DataObject) -> None:

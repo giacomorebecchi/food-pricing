@@ -12,7 +12,7 @@ from .internal.parquetize import (
     ITEM_SUFFIX,
     csv_to_parquet,
 )
-from .table_model import Table
+from .dataobj_model import Table
 
 IMAGES_TABLE = Table(
     path=["interim"],

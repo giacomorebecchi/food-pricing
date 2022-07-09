@@ -2,7 +2,7 @@ from pathlib import PurePosixPath
 from typing import Any, List, Tuple, Union
 
 from ..data.storage import dd_read_parquet, get_S3_fs
-from ..data.table_model import Table
+from ..data.dataobj_model import Table
 
 
 def create_txt(

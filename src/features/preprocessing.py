@@ -4,7 +4,7 @@ from typing import List, Tuple, Union
 from src.features.split_dataset import dd_split_df
 
 from ..data.storage import dd_read_parquet, dd_write_parquet
-from ..data.table_model import Table
+from ..data.dataobj_model import Table
 
 
 def prepare_dataset(

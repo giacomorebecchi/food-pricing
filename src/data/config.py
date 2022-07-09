@@ -2,7 +2,7 @@ from ..features.images import download_thumbnails
 from ..features.preprocessing import prepare_dataset
 from ..features.text_file import create_txt
 from .join_tables import join
-from .table_model import DataObject, Table
+from .dataobj_model import DataObject, Table
 
 FULL_TABLE = Table(
     path=["interim"],
