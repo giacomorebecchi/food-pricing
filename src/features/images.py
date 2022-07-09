@@ -3,11 +3,13 @@ from pathlib import PurePosixPath
 from typing import Any, List, Tuple, Union
 
 import dask.dataframe as dd
-from PIL import Image
+from PIL import Image, ImageFile
 from s3fs import S3FileSystem
 
 from ..data.storage import dd_read_parquet, get_S3_fs
 from ..data.table_model import Table
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def save_img(
