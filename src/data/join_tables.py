@@ -3,8 +3,8 @@ from typing import List, Set
 
 import dask.dataframe as dd
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
+from src.data.dataobj_model import Table
 from src.data.storage import dd_read_parquet, dd_write_parquet, get_local_data_path
-from src.data.table_model import Table
 
 TABLES = [ITEMS_TABLE.copy(), COORDINATES_TABLE.copy(), IMAGES_TABLE.copy()]
 for table in TABLES:
