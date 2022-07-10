@@ -216,6 +216,25 @@ def dd_write_parquet(
     )
 
 
+def pd_read_parquet(
+    path: PurePosixPath,
+    remote: bool = False,
+    columns: List[str] = None,
+    **kwargs,
+) -> pd.DataFrame:
+    storage_options = (
+        {"client_kwargs": {"endpoint_url": os.environ["S3_ENDPOINT"]}}
+        if remote
+        else None
+    )
+    return pd.read_parquet(
+        path="s3://" * remote + str(path),
+        storage_options=storage_options,
+        columns=columns,
+        **kwargs,
+    )
+
+
 def dd_read_parquet(
     path: PurePosixPath,
     remote: bool = False,
