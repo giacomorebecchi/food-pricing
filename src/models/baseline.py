@@ -45,10 +45,10 @@ class LanguageAndVisionConcat(torch.nn.Module):
         self.loss_fn = loss_fn
         self.dropout = torch.nn.Dropout(dropout_p)
 
-    def forward(self, text, img, label=None):  # TODO: test this None default
-        text_features = torch.nn.functional.relu(self.language_module(text))
+    def forward(self, txt, img, label=None):  # TODO: test this None default
+        txt_features = torch.nn.functional.relu(self.language_module(txt))
         img_features = torch.nn.functional.relu(self.vision_module(img))
-        combined = torch.cat([text_features, img_features], dim=1)
+        combined = torch.cat([txt_features, img_features], dim=1)
         fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
         pred = self.fc(fused)
         loss = self.loss_fn(pred, label) if label is not None else label
@@ -86,12 +86,12 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     ## Required LightningModule Methods (when validating) ##
 
-    def forward(self, text, img, label=None):
-        return self.model(text, img, label)
+    def forward(self, txt, img, label=None):
+        return self.model(txt, img, label)
 
     def training_step(self, batch, batch_nb):
         preds, loss = self.forward(
-            text=batch["txt"], img=batch["img"], label=batch["label"]
+            txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
             "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
@@ -101,7 +101,7 @@ class FPBaselineConcatModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         preds, loss = self.eval().forward(
-            text=batch["txt"], img=batch["img"], label=batch["label"]
+            txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
 
         return {"batch_val_loss": loss}
