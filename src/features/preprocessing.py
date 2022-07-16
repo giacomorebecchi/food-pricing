@@ -3,8 +3,8 @@ from typing import List, Tuple, Union
 
 from src.features.split_dataset import dd_split_df
 
-from ..data.storage import dd_read_parquet, dd_write_parquet
 from ..data.dataobj_model import Table
+from ..data.storage import dd_read_parquet, dd_write_parquet
 
 
 def prepare_dataset(
@@ -14,6 +14,7 @@ def prepare_dataset(
     columns: Union[List[str], None] = None,
     drop_noimg: bool = True,
     drop_nodescription: bool = False,
+    fillna_description: str = "",
     train_dev_test_ratio: Tuple[float] = (),
     seed: int = 42,
 ) -> None:
@@ -23,6 +24,8 @@ def prepare_dataset(
         ddf = ddf.dropna(subset=["imgPath"])
     if drop_nodescription:
         ddf = ddf.dropna(subset=["description"])
+    else:
+        ddf["description"] = ddf["description"].fillna(fillna_description)
     ddf["txt"] = ddf["name"] + " " + ddf["description"]
     ddf["item_id"] = (
         ddf["city"].astype(str)

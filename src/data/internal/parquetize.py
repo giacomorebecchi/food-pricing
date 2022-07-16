@@ -35,7 +35,7 @@ STORE_OUTPUT_PATH = output_path(STORE_SUFFIX)
 
 ITEM_DTYPES = {
     "percentageDiscounted": str,
-    "name": str,
+    "name": object,
     "popular": bool,
     "categoryId": int,
     "modifierGroupIds": object,
@@ -45,7 +45,7 @@ ITEM_DTYPES = {
     "nutritionalInfo": str,
     "available": bool,
     "maxSelection": str,
-    "description": str,
+    "description": object,
     "id": int,
     "priceDiscounted_code": str,
     "priceDiscounted_fractional": float,

@@ -1,8 +1,8 @@
 from ..features.images import download_thumbnails
 from ..features.preprocessing import prepare_dataset
 from ..features.text_file import create_txt
-from .join_tables import join
 from .dataobj_model import DataObject, Table
+from .join_tables import join
 
 FULL_TABLE = Table(
     path=["interim"],
@@ -34,6 +34,7 @@ DATASET = Table(
         ],
         "drop_noimg": True,
         "drop_nodescription": False,
+        "fillna_description": "EMPTY_DESCRIPTION",
     },
 )
 
