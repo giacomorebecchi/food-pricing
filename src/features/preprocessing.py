@@ -14,6 +14,8 @@ def prepare_dataset(
     columns: Union[List[str], None] = None,
     drop_noimg: bool = True,
     drop_nodescription: bool = False,
+    replace_specialchars: bool = True,
+    fillna_description: str = "",
     train_dev_test_ratio: Tuple[float] = (),
     seed: int = 42,
 ) -> None:
@@ -23,7 +25,11 @@ def prepare_dataset(
         ddf = ddf.dropna(subset=["imgPath"])
     if drop_nodescription:
         ddf = ddf.dropna(subset=["description"])
+    else:
+        ddf["description"] = ddf["description"].fillna(fillna_description)
     ddf["txt"] = ddf["name"] + " " + ddf["description"]
+    if replace_specialchars:
+        ddf["txt"] = ddf["txt"].str.replace("\n", " ", regex=False)
     ddf["item_id"] = (
         ddf["city"].astype(str)
         + "_"

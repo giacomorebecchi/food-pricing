@@ -65,8 +65,8 @@ def main(
             pass
         else:
             make_dataobj(
-                table=FULL_TABLE,
-                remote=remote,
+                FULL_TABLE,
+                remote,
                 tables=[ITEMS_TABLE, COORDINATES_TABLE, IMAGES_TABLE],
             )
 

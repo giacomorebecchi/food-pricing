@@ -34,6 +34,8 @@ DATASET = Table(
         ],
         "drop_noimg": True,
         "drop_nodescription": False,
+        "replace_specialchars": True,
+        "fillna_description": "EMPTY_DESCRIPTION",
     },
 )
 
