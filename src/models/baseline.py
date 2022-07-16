@@ -286,13 +286,12 @@ class FPBaselineConcatModel(pl.LightningModule):
 if __name__ == "__main__":
     hparams = {
         # Optional hparams
-        "train_dev_test": (0.7, 0.15, 0.15),
         "embedding_dim": 150,
         "language_feature_dim": 300,
         "vision_feature_dim": 300,
         "fusion_output_size": 256,
         "dev_limit": None,
-        "lr": 0.00005,
+        "lr": 5e-05,
         "max_epochs": 2,
         "accelerator": "cpu",
         "devices": 1,
@@ -300,7 +299,7 @@ if __name__ == "__main__":
         # allows us to "simulate" having larger batches
         "accumulate_grad_batches": 16,
         "early_stop_patience": 3,
-        "num_sanity_val_steps": 0,
+        "num_sanity_val_steps": 2,
     }
     model = FPBaselineConcatModel(hparams)
     model.fit()
