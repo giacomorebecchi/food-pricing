@@ -1,5 +1,4 @@
 import logging
-import os
 import random
 import tempfile
 import warnings
@@ -14,7 +13,6 @@ import torch
 import torchvision
 import tqdm
 import yaml
-from pytorch_lightning.core.saving import save_hparams_to_yaml
 from src.data.config import TXT_TRAIN
 from src.data.storage import CONFIG_PATH
 from src.models.utils.data import FoodPricingDataset
@@ -57,10 +55,9 @@ class LanguageAndVisionConcat(torch.nn.Module):
 
 
 class FPBaselineConcatModel(pl.LightningModule):
-    def __init__(self, hparams):
+    def __init__(self, *args, **kwargs):
         super(FPBaselineConcatModel, self).__init__()
-        self.hparams.update(hparams)
-
+        self.save_hyperparameters()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
         # assign some hparams that get used in multiple places
@@ -298,12 +295,13 @@ if __name__ == "__main__":
         "max_epochs": 3,
         "accelerator": "cpu",
         "devices": 1,
-        "num_workers": 8,
+        "num_workers": 2,
         "batch_size": 32,
         # allows us to "simulate" having larger batches
         "accumulate_grad_batches": None,
         "early_stop_patience": 3,
         "num_sanity_val_steps": 2,
     }
-    model = FPBaselineConcatModel(hparams)
+
+    model = FPBaselineConcatModel(**hparams)
     model.fit()
