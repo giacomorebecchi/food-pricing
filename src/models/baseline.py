@@ -11,12 +11,12 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torchvision
-import tqdm
 import yaml
 from src.data.config import TXT_TRAIN
 from src.data.storage import CONFIG_PATH
 from src.models.utils.data import FoodPricingDataset
 from src.models.utils.storage import get_local_models_path
+from tqdm import tqdm
 
 # warnings.filterwarnings("ignore")
 # logging.getLogger().setLevel(logging.DEBUG)
