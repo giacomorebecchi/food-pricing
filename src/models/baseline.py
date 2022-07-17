@@ -59,7 +59,6 @@ class LanguageAndVisionConcat(torch.nn.Module):
 class FPBaselineConcatModel(pl.LightningModule):
     def __init__(self, hparams):
         super(FPBaselineConcatModel, self).__init__()
-        self.hparams_initial.update(hparams)
         self.hparams.update(hparams)
 
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
@@ -72,7 +71,7 @@ class FPBaselineConcatModel(pl.LightningModule):
             "vision_feature_dim",
             self.language_feature_dim,
         )
-        self.output_path = self._get_path(path=["model-outputs"])
+        self.output_path = self._get_path()
 
         # build transform models
         self.txt_transform = self._build_txt_transform()
@@ -237,7 +236,7 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
 
     def _get_path(
-        self, path: List[str], file_name: str = "", file_format: str = ""
+        self, path: List[str] = [], file_name: str = "", file_format: str = ""
     ) -> PurePosixPath:
         return get_local_models_path(path, self, file_name, file_format)
 
