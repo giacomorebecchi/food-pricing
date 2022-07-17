@@ -14,13 +14,14 @@ import torch
 import torchvision
 import tqdm
 import yaml
+from pytorch_lightning.core.saving import save_hparams_to_yaml
 from src.data.config import TXT_TRAIN
 from src.data.storage import CONFIG_PATH
 from src.models.utils.data import FoodPricingDataset
 from src.models.utils.storage import get_local_models_path
 
 # warnings.filterwarnings("ignore")
-logging.getLogger().setLevel(logging.DEBUG)
+# logging.getLogger().setLevel(logging.DEBUG)
 
 
 class LanguageAndVisionConcat(torch.nn.Module):
@@ -58,6 +59,7 @@ class LanguageAndVisionConcat(torch.nn.Module):
 class FPBaselineConcatModel(pl.LightningModule):
     def __init__(self, hparams):
         super(FPBaselineConcatModel, self).__init__()
+        self.hparams_initial.update(hparams)
         self.hparams.update(hparams)
 
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
@@ -103,15 +105,15 @@ class FPBaselineConcatModel(pl.LightningModule):
         preds, loss = self.eval().forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
+        self.log(
+            "val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+        )
+        return loss
 
-        return {"batch_val_loss": loss}
-
-    def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack(
-            tuple(output["batch_val_loss"] for output in outputs)
-        ).mean()
-
-        return {"val_loss": avg_loss, "progress_bar": {"avg_val_loss": avg_loss}}
+    def validation_epoch_end(self, val_step_outputs):
+        avg_loss = torch.stack(tuple(val_step_outputs)).mean()
+        self.log("avg_val_loss", avg_loss, logger=True)
+        # return {"avg_val_loss": avg_loss, "progress_bar": {"avg_val_loss": avg_loss}}
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
@@ -132,17 +134,17 @@ class FPBaselineConcatModel(pl.LightningModule):
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
             self.train_dataset,
-            # shuffle=True,
+            shuffle=True,
             batch_size=self.hparams.get("batch_size", 4),
-            # num_workers=self.hparams.get("num_workers", 8),
+            num_workers=self.hparams.get("num_workers", 8),
         )
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
             self.dev_dataset,
-            # shuffle=False,
+            shuffle=False,
             batch_size=self.hparams.get("batch_size", 4),
-            # num_workers=self.hparams.get("num_workers", 8),
+            num_workers=self.hparams.get("num_workers", 8),
         )
 
     ## Convenience Methods ##
@@ -150,6 +152,8 @@ class FPBaselineConcatModel(pl.LightningModule):
     def fit(self):
         self._set_seed(self.hparams.get("random_state", 42))
         self.trainer = pl.Trainer(**self.trainer_params)
+        # file_path = f"{self.trainer.logger.log_dir}/hparams.yaml"
+        # save_hparams_to_yaml(config_yaml=file_path, hparams=self.hparams)
         self.trainer.fit(self)
 
     def _set_seed(self, seed):
@@ -273,9 +277,9 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
         test_dataloader = torch.utils.data.DataLoader(
             self.test_dataset,
-            # shuffle=False,
+            shuffle=False,
             batch_size=self.hparams.get("batch_size", 4),
-            # num_workers=self.hparams.get("num_workers", 8),
+            num_workers=self.hparams.get("num_workers", 8),
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
             preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
@@ -291,13 +295,14 @@ if __name__ == "__main__":
         "vision_feature_dim": 300,
         "fusion_output_size": 256,
         "dev_limit": None,
-        "lr": 5e-05,
-        "max_epochs": 2,
+        "lr": 5e-03,
+        "max_epochs": 3,
         "accelerator": "cpu",
         "devices": 1,
-        "batch_size": 4,
+        "num_workers": 8,
+        "batch_size": 32,
         # allows us to "simulate" having larger batches
-        "accumulate_grad_batches": 16,
+        "accumulate_grad_batches": None,
         "early_stop_patience": 3,
         "num_sanity_val_steps": 2,
     }
