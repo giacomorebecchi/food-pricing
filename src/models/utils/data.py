@@ -69,6 +69,7 @@ class FoodPricingDataset(Dataset):
         lon = self.data.loc[idx, "lon"]
         label = self.data.loc[idx, "price_fractional"]
         return {
+            "id": idx,
             "img": self.img_transform(img),
             "txt": self.txt_transform(txt),
             "coords": torch.Tensor([lat, lon]),
