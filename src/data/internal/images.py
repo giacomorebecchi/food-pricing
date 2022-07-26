@@ -10,10 +10,10 @@ from PIL import Image
 from src.data.settings import get_S3_settings
 from src.data.storage import (
     build_path,
+    dd_write_parquet,
     get_children,
     get_local_data_path,
     get_S3_fs,
-    dd_write_parquet,
 )
 
 load_dotenv()
@@ -33,7 +33,7 @@ IMG_PATH_PATTERN = re.compile(
     rf"(?P<imgPath>{get_S3_settings().BUCKET}/data/images/(?:[a-zA-Z.]+)/store/(?P<city>[a-zA-Z\-]+)/(?P<zone>[a-zA-Z\-]+)/(?:[a-zA-z0-9\-]+)/(?:[T0-9\.\:\-]+)/(?P<store>[a-zA-Z0-9\-]+)-(?P<menuRow>[0-9]+)+(?P<format>.[a-zA-Z0-9]+))$"
 )
 OUTPUT_PATH = get_local_data_path(
-    path=["interim"], file_name="images", file_format=".parquet.gzip"
+    path=["interim"], file_name="images", file_format=""
 )
 
 
