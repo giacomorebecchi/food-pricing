@@ -8,7 +8,7 @@ from src.data.storage import get_local_data_path, get_remote_data_path
 class DataObject(BaseModel):
     path: List[str] = []
     file_name: str = ""
-    file_format: str = ".parquet.gzip"
+    file_format: str = ""
     base_url_position: int = None
     write_func: Optional[Callable]
     kwargs: Dict = {}

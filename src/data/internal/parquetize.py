@@ -7,10 +7,10 @@ import pandas as pd
 from dask import delayed
 from dotenv import load_dotenv
 from src.data.storage import (
+    dd_write_parquet,
     get_local_data_path,
     get_remote_data_path,
     get_S3_fs,
-    dd_write_parquet,
 )
 
 load_dotenv()
@@ -28,7 +28,7 @@ ITEM_INPUT_PATH = input_path(ITEM_SUFFIX)
 STORE_INPUT_PATH = input_path(STORE_SUFFIX)
 
 output_path = lambda s: get_local_data_path(
-    path=["interim"], file_name=s, file_format=".parquet.gzip"
+    path=["interim"], file_name=s, file_format=""
 )
 ITEM_OUTPUT_PATH = output_path(ITEM_SUFFIX)
 STORE_OUTPUT_PATH = output_path(STORE_SUFFIX)

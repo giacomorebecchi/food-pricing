@@ -7,7 +7,7 @@ from .join_tables import join
 FULL_TABLE = Table(
     path=["interim"],
     file_name="dataset",
-    file_format=".parquet.gzip",
+    file_format="",
     base_url_position=1,
     write_func=join,
     kwargs={},
@@ -16,7 +16,7 @@ FULL_TABLE = Table(
 DATASET = Table(
     path=["processed"],
     file_name="dataset",
-    file_format=".parquet.gzip",
+    file_format="",
     base_url_position=1,
     write_func=prepare_dataset,
     kwargs={
