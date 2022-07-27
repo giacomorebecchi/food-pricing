@@ -269,7 +269,7 @@ class FPBaselineConcatModel(pl.LightningModule):
     def make_submission_frame(self) -> pd.DataFrame:
         self.test_dataset = self._build_dataset("test")
         submission_frame = pd.DataFrame(
-            index=self.test_dataset.index, columns=["proba", "label"]
+            index=self.test_dataset.index, columns=["true", "pred"]
         )
         test_dataloader = torch.utils.data.DataLoader(
             self.test_dataset,
@@ -279,7 +279,8 @@ class FPBaselineConcatModel(pl.LightningModule):
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
             preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
-            submission_frame.loc[batch["id"], "label"] = preds
+            submission_frame.loc[batch["id"], "true"] = batch["label"].squeeze(-1)
+            submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
         return submission_frame
 
 
