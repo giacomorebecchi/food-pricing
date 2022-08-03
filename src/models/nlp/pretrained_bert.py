@@ -21,7 +21,7 @@ class PreTrainedBERT(torch.nn.Module):
         if not self.pretrained_model_name_or_path:
             raise ValueError("Specify the parameter pretrained_model_name_or_path.")
         self.bert = AutoModel.from_pretrained(**model_kwargs, output_hidden_states=True)
-        self.encoder_features = self.bert.config.dim
+        self.encoder_features = self.bert.config.hidden_size
         self.add_fc = False
         if feature_dim and feature_dim != self.encoder_features:
             self.add_fc = True
