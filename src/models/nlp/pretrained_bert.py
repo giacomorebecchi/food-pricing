@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -10,12 +10,10 @@ logging.basicConfig(level=logging.INFO)
 class PreTrainedBERT(torch.nn.Module):
     def __init__(
         self,
-        loss_fn: Callable,
         model_kwargs: Dict,
         tokenizer_kwargs: Optional[Dict] = {},
     ) -> None:
         super(PreTrainedBERT, self).__init__()
-        self.loss_fn = loss_fn
         self.pretrained_model_name_or_path = model_kwargs.get(
             "pretrained_model_name_or_path", 0
         )
