@@ -4,8 +4,6 @@ from typing import Callable, Dict, List, Optional
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from .utils import mean_pooling
-
 logging.basicConfig(level=logging.INFO)
 
 
@@ -51,13 +49,11 @@ class PreTrainedBERT(torch.nn.Module):
             self.frozen = False
 
     def prepare_sample(self, text_sample: List[str]) -> Dict:
-        encoded_batch = self.tokenizer(text_sample, padding=True, return_tensors="pt")
-        return encoded_batch
+        return self.tokenizer(text_sample, padding=True, return_tensors="pt")
 
     def forward(self, txt):
         encoded_batch = self.prepare_sample(txt)
         token_emb = self.bert(
             encoded_batch["input_ids"], encoded_batch["attention_mask"]
         )
-        sent_emb = mean_pooling(token_emb, encoded_batch["attention_mask"])
-        return sent_emb
+        return token_emb[0][:, 0, :]
