@@ -67,8 +67,8 @@ class FoodPricingBaseModel(LightningModule):
     def __init__(self, *args, **kwargs) -> None:
         super(FoodPricingBaseModel, self).__init__()
         self.save_hyperparameters()
-        self._add_default_hparams()
         self._add_model_specific_hparams()
+        self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
         # build transform models
