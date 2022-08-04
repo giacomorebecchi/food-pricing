@@ -1,54 +1,19 @@
 import random
-import tempfile
-from pathlib import PurePosixPath
 from typing import Dict, List
 
-import fasttext
 import numpy as np
 import pandas as pd
 import torch
-import torchvision
 import yaml
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from src.data.config import TXT_TRAIN
-from src.data.storage import CONFIG_PATH
-from src.models.utils.data import FoodPricingDataset, FoodPricingLazyDataset
-from src.models.utils.storage import get_local_models_path
 from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
 
-
-class LanguageAndVisionConcat(torch.nn.Module):
-    def __init__(
-        self,
-        loss_fn,
-        language_module,
-        vision_module,
-        language_feature_dim,
-        vision_feature_dim,
-        fusion_output_size,
-        dropout_p,
-    ):
-        super(LanguageAndVisionConcat, self).__init__()
-        self.language_module = language_module
-        self.vision_module = vision_module
-        self.fusion = torch.nn.Linear(
-            in_features=(language_feature_dim + vision_feature_dim),
-            out_features=fusion_output_size,
-        )
-        self.fc = torch.nn.Linear(in_features=fusion_output_size, out_features=1)
-        self.loss_fn = loss_fn
-        self.dropout = torch.nn.Dropout(dropout_p)
-
-    def forward(self, txt, img, label=None):  # TODO: test this None default
-        txt_features = torch.nn.functional.relu(self.language_module(txt))
-        img_features = torch.nn.functional.relu(self.vision_module(img))
-        combined = torch.cat([txt_features, img_features], dim=1)
-        fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
-        pred = self.fc(fused)
-        loss = self.loss_fn(pred, label) if label is not None else label
-        return (pred, loss)
+from ..data.storage import CONFIG_PATH
+from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
+from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
 
 class FoodPricingBaseModel(LightningModule):
@@ -106,12 +71,6 @@ class FoodPricingBaseModel(LightningModule):
         self._add_model_specific_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
-        # assign some hparams that get used in multiple places
-        self.embedding_dim = self.hparams.embedding_dim
-        self.language_feature_dim = self.hparams.language_feature_dim
-        self.vision_feature_dim = self.hparams.vision_feature_dim
-        self.output_path = self._get_path()
-
         # build transform models
         self.txt_transform = self._build_txt_transform()
         self.img_transform = self._build_img_transform()
@@ -122,8 +81,6 @@ class FoodPricingBaseModel(LightningModule):
         # set up model and training
         self.model = self._build_model()
         self.trainer_params = self._get_trainer_params()
-
-    # Required LightningModule Methods (when validating)
 
     def forward(self, txt, img, label=None):
         return self.model(txt, img, label)
@@ -171,9 +128,12 @@ class FoodPricingBaseModel(LightningModule):
     def fit(self):
         self._set_seed(self.hparams.random_state)
         self.trainer = Trainer(**self.trainer_params)
-        # file_path = f"{self.trainer.logger.log_dir}/hparams.yaml"
-        # save_hparams_to_yaml(config_yaml=file_path, hparams=self.hparams)
         self.trainer.fit(self)
+
+    @classmethod
+    def load_from_best_checkpoint(cls, **kwargs):
+        best_checkpoint_path = get_best_checkpoint_path(model_class=cls, **kwargs)
+        return cls.load_from_checkpoint(checkpoint_path=best_checkpoint_path)
 
     def _set_seed(self, seed):
         random.seed(seed)
@@ -183,79 +143,33 @@ class FoodPricingBaseModel(LightningModule):
             torch.cuda.manual_seed_all(seed)
 
     def _build_txt_transform(self):
-        if self.config.get("txt_created", False):
-            ft_path = TXT_TRAIN.local_path
-            language_transform = fasttext.train_unsupervised(
-                str(ft_path),
-                model=self.hparams.get("fasttext_model", "cbow"),
-                dim=self.embedding_dim,
-            )
-        else:
-            with tempfile.NamedTemporaryFile() as ft_training_data:
-                ft_path = PurePosixPath(ft_training_data.name)
-                with open(ft_path, "w") as ft:
-                    for line in self.train_dataset.iter_txt():
-                        ft.write(line + "\n")
-                    language_transform = fasttext.train_unsupervised(
-                        str(ft_path),
-                        model=self.hparams.get("fasttext_model", "cbow"),
-                        dim=self.embedding_dim,
-                    )
-        return language_transform.get_sentence_vector
+        pass
 
     def _build_img_transform(self):
         img_dim = self.hparams.img_dim
-        img_transform = torchvision.transforms.Compose(
+        img_transform = Compose(
             [
-                torchvision.transforms.Resize(size=(img_dim, img_dim)),
-                torchvision.transforms.ToTensor(),
+                Resize(size=(img_dim, img_dim)),
+                ToTensor(),
                 # all torchvision models expect the same
                 # normalization mean and std
                 # https://pytorch.org/vision/stable/models.html
-                torchvision.transforms.Normalize(
-                    mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)
-                ),
+                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ]
         )
         return img_transform
 
-    def _build_model(self):
-        # we're going to pass the outputs of our text
-        # transform through an additional trainable layer
-        # rather than fine-tuning the transform
-        language_module = torch.nn.Linear(
-            in_features=self.embedding_dim, out_features=self.language_feature_dim
-        )
-
-        # easiest way to get features rather than
-        # classification is to overwrite last layer
-        # with an identity transformation, we'll reduce
-        # dimension using a Linear layer, resnet is 2048 out
-        vision_module = torchvision.models.resnet152(pretrained=True)
-        for param in vision_module.parameters():
-            param.requires_grad = False
-        vision_module.fc = torch.nn.Linear(
-            in_features=2048, out_features=self.vision_feature_dim
-        )
-
-        return LanguageAndVisionConcat(
-            loss_fn=torch.nn.MSELoss(),
-            language_module=language_module,
-            vision_module=vision_module,
-            language_feature_dim=self.language_feature_dim,
-            vision_feature_dim=self.vision_feature_dim,
-            fusion_output_size=self.hparams.fusion_output_size,
-            dropout_p=self.hparams.dropout_p,
-        )
+    def _build_model(self) -> torch.nn.Module:
+        pass
 
     def _get_path(
         self, path: List[str] = [], file_name: str = "", file_format: str = ""
-    ) -> PurePosixPath:
-        return get_local_models_path(path, self, file_name, file_format)
+    ) -> str:
+        return str(get_local_models_path(path, self, file_name, file_format))
 
     def _get_trainer_params(self):
         checkpoint_callback = ModelCheckpoint(
-            dirpath=self.output_path,
+            dirpath=self.hparams.output_path,
             filename="{epoch}-{val_loss:.2f}",
             monitor=self.hparams.checkpoint_monitor,
             mode=self.hparams.checkpoint_monitor_mode,
@@ -271,7 +185,7 @@ class FoodPricingBaseModel(LightningModule):
 
         trainer_params = {
             "callbacks": [checkpoint_callback, early_stop_callback],
-            "default_root_dir": self.output_path,
+            "default_root_dir": self.hparams.output_path,
             "accumulate_grad_batches": self.hparams.accumulate_grad_batches,
             "accelerator": self.hparams.accelerator,
             "devices": self.hparams.devices,
@@ -300,6 +214,7 @@ class FoodPricingBaseModel(LightningModule):
             "shuffle_train_dataset": True,
             "batch_size": 32,
             "loader_workers": 8,  # TODO: set default n_cpu
+            "output_path": self._get_path(),
             # Image and text params
             "img_dim": 224,
             "embedding_dim": 300,
