@@ -24,7 +24,7 @@ class FoodPricingBaseModel(LightningModule):
             self.model = model_instance
 
         def _build_dataset(self, split: str) -> Dataset:
-            if self.model_hparams.lazy_dataset:
+            if self.hparams.lazy_dataset:
                 return FoodPricingLazyDataset(
                     img_transform=self.model.img_transform,
                     txt_transform=self.model.txt_transform,
@@ -32,8 +32,8 @@ class FoodPricingBaseModel(LightningModule):
                 )
             else:
                 return FoodPricingDataset(
-                    img_transform=self.img_transform,
-                    txt_transform=self.txt_transform,
+                    img_transform=self.model.img_transform,
+                    txt_transform=self.model.txt_transform,
                     split=split,
                 )
 
