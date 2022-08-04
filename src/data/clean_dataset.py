@@ -3,8 +3,8 @@ from pathlib import PurePosixPath
 
 from src.data.config import DATASET, FULL_TABLE
 from src.data.config_interim import COORDINATES_TABLE, IMAGES_TABLE, ITEMS_TABLE
+from src.data.dataobj_model import Table
 from src.data.storage import exists, get_S3_fs
-from src.data.table_model import Table
 
 
 def clean_table(table: Table):
