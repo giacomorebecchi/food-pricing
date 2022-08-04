@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Dict, Generator, List
+from typing import Dict, Generator
 
 import torch
 import yaml
