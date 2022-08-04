@@ -1,4 +1,5 @@
 import tempfile
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 
 import fasttext
@@ -45,26 +46,36 @@ class FoodPricingConcatModel(FoodPricingBaseModel):
         super(FoodPricingConcatModel, self).__init__(*args, **kwargs)
 
     def _build_txt_transform(self):
-        if self.config.get("txt_created", False):
-            ft_path = TXT_TRAIN.local_path
-            language_transform = fasttext.train_unsupervised(
-                str(ft_path),
-                model=self.hparams.fasttext_model,
-                dim=self.hparams.embedding_dim,
-            )
+        if path := self.hparams.fasttext_model_path:
+            language_transform = fasttext.load_model(path)
         else:
-            with tempfile.NamedTemporaryFile() as ft_training_data:
-                ft_path = PurePosixPath(ft_training_data.name)
-                with open(ft_path, "w") as ft:
-                    train_dataset = self.data.train_dataloader().dataset
-                    for line in train_dataset.iter_txt():
-                        ft.write(line + "\n")
-                    language_transform = fasttext.train_unsupervised(
-                        str(ft_path),
-                        model=self.hparams.fasttext_model,
-                        dim=self.hparams.embedding_dim,
-                    )
+            if self.config.get("txt_created", False):
+                ft_path = TXT_TRAIN.local_path
+                language_transform = fasttext.train_unsupervised(
+                    str(ft_path),
+                    model=self.hparams.fasttext_model,
+                    dim=self.hparams.embedding_dim,
+                )
+            else:
+                with tempfile.NamedTemporaryFile() as ft_training_data:
+                    ft_path = PurePosixPath(ft_training_data.name)
+                    with open(ft_path, "w") as ft:
+                        train_dataset = self.data.train_dataloader().dataset
+                        for line in train_dataset.iter_txt():
+                            ft.write(line + "\n")
+                        language_transform = fasttext.train_unsupervised(
+                            str(ft_path),
+                            model=self.hparams.fasttext_model,
+                            dim=self.hparams.embedding_dim,
+                        )
+            path = self._get_fasttext_path()
+            self.hparams.update({"fasttext_model_path": path})
+            language_transform.save_model(path)
         return language_transform.get_sentence_vector
+
+    def _get_fasttext_path(self):
+        t = datetime.now(timezone.utc).isoformat()
+        return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
 
     def _build_model(self):
         # we're going to pass the outputs of our text
@@ -101,5 +112,6 @@ class FoodPricingConcatModel(FoodPricingBaseModel):
             "dropout_p": 0.2,
             "fusion_output_size": 512,
             "fasttext_model": "cbow",
+            "fasttext_model_path": None,
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
