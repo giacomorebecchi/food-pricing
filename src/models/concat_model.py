@@ -42,7 +42,7 @@ class FoodPricingConcatModel(FoodPricingBaseModel):
             return (pred, loss)
 
     def __init__(self, *args, **kwargs):
-        super(FoodPricingConcatModel, self).__init__()
+        super(FoodPricingConcatModel, self).__init__(*args, **kwargs)
 
     def _build_txt_transform(self):
         if self.config.get("txt_created", False):
