@@ -228,7 +228,7 @@ class FoodPricingBaseModel(LightningModule):
             "accelerator": "auto",
             "devices": 1,
             "max_epochs": 100,
-            "gradient_clip_val": 1,
+            "gradient_clip_value": 1,
             "num_sanity_val_steps": 2,
             # Callback params
             "checkpoint_monitor": "avg_val_loss",
