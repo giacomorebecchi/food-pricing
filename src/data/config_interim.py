@@ -1,3 +1,4 @@
+from .dataobj_model import Table
 from .external.location_coordinates import make_coordinates_table
 from .internal.images import (
     CITIES_PATH,
@@ -12,7 +13,6 @@ from .internal.parquetize import (
     ITEM_SUFFIX,
     csv_to_parquet,
 )
-from .dataobj_model import Table
 
 IMAGES_TABLE = Table(
     path=["interim"],

@@ -25,7 +25,9 @@ dependencies:
   - seaborn
   - scikit-learn
   - pytorch
+  - pytorch-lightning
   - torchvision
+  - fasttext
   - black
   - jupyterlab_code_formatter
   - flake8
@@ -34,7 +36,9 @@ dependencies:
   - lxml
   - bokeh
   - python-graphviz
+  - ipywidgets
   - geopy
   - tensorboard
   - captum
   - flask
+  - transformers
