@@ -119,8 +119,6 @@ class FoodPricingBaseModel(LightningModule):
             },
         }
 
-    # Convenience Methods
-
     def fit(self) -> None:
         self._set_seed(self.hparams.random_state)
         self.trainer = Trainer(**self.trainer_params)
@@ -166,7 +164,7 @@ class FoodPricingBaseModel(LightningModule):
     def _get_trainer_params(self) -> Dict:
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.hparams.output_path,
-            filename="{epoch}-{val_loss:.2f}",
+            filename="{epoch}-{avg_val_loss:.2f}",
             monitor=self.hparams.checkpoint_monitor,
             mode=self.hparams.checkpoint_monitor_mode,
             verbose=self.hparams.verbose,
