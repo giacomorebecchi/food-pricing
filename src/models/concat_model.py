@@ -79,7 +79,7 @@ class FoodPricingConcatModel(FoodPricingBaseModel):
         # classification is to overwrite last layer
         # with an identity transformation, we'll reduce
         # dimension using a Linear layer, resnet is 2048 out
-        vision_module = torchvision.models.resnet152(pretrained=True)
+        vision_module = torchvision.models.resnet152(weights="DEFAULT")
         for param in vision_module.parameters():
             param.requires_grad = False
         vision_module.fc = torch.nn.Linear(
