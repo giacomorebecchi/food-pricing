@@ -124,7 +124,7 @@ class FoodPricingBaseModel(LightningModule):
     def fit(self) -> None:
         self._set_seed(self.hparams.random_state)
         self.trainer = Trainer(**self.trainer_params)
-        self.trainer.fit(self)
+        self.trainer.fit(self, datamodule=self.data)
 
     @classmethod
     def load_from_best_checkpoint(cls, **kwargs) -> LightningModule:
