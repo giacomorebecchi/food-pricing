@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
 class FoodPricingBaseModel(LightningModule):
     class DataModule(LightningDataModule):
-        def __init__(self, model_instance: LightningModule):
+        def __init__(self, model_instance: LightningModule) -> None:
             super().__init__()
             self.hparams.update(model_instance.hparams)
             self.model = model_instance
@@ -64,7 +64,7 @@ class FoodPricingBaseModel(LightningModule):
                 num_workers=self.hparams.loader_workers,
             )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super(FoodPricingBaseModel, self).__init__()
         self.save_hyperparameters()
         self._add_default_hparams()
@@ -85,7 +85,7 @@ class FoodPricingBaseModel(LightningModule):
     def forward(self, txt, img, label=None):
         return self.model(txt, img, label)
 
-    def training_step(self, batch, batch_nb):
+    def training_step(self, batch: Dict, batch_nb) -> torch.Tensor:
         preds, loss = self.forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
@@ -95,7 +95,7 @@ class FoodPricingBaseModel(LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_nb):
+    def validation_step(self, batch, batch_nb) -> torch.Tensor:
         preds, loss = self.eval().forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
@@ -104,12 +104,11 @@ class FoodPricingBaseModel(LightningModule):
         )
         return loss
 
-    def validation_epoch_end(self, val_step_outputs):
+    def validation_epoch_end(self, val_step_outputs) -> None:
         avg_loss = torch.stack(tuple(val_step_outputs)).mean()
         self.log("avg_val_loss", avg_loss, logger=True)
-        # return {"avg_val_loss": avg_loss, "progress_bar": {"avg_val_loss": avg_loss}}
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         return {
@@ -117,35 +116,32 @@ class FoodPricingBaseModel(LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "avg_val_loss",
-                # "frequency": "indicates how often the metric is updated"
-                # If "monitor" references validation metrics, then "frequency" should be
-                # set to a multiple of "trainer.check_val_every_n_epoch".
             },
         }
 
     # Convenience Methods
 
-    def fit(self):
+    def fit(self) -> None:
         self._set_seed(self.hparams.random_state)
         self.trainer = Trainer(**self.trainer_params)
         self.trainer.fit(self)
 
     @classmethod
-    def load_from_best_checkpoint(cls, **kwargs):
+    def load_from_best_checkpoint(cls, **kwargs) -> LightningModule:
         best_checkpoint_path = get_best_checkpoint_path(model_class=cls, **kwargs)
         return cls.load_from_checkpoint(checkpoint_path=best_checkpoint_path)
 
-    def _set_seed(self, seed):
+    def _set_seed(self, seed) -> None:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def _build_txt_transform(self):
+    def _build_txt_transform(self) -> Callable:
         pass
 
-    def _build_img_transform(self):
+    def _build_img_transform(self) -> Callable:
         img_dim = self.hparams.img_dim
         img_transform = Compose(
             [
@@ -167,7 +163,7 @@ class FoodPricingBaseModel(LightningModule):
     ) -> str:
         return str(get_local_models_path(path, self, file_name, file_format))
 
-    def _get_trainer_params(self):
+    def _get_trainer_params(self) -> Dict:
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.hparams.output_path,
             filename="{epoch}-{val_loss:.2f}",
@@ -207,7 +203,7 @@ class FoodPricingBaseModel(LightningModule):
             submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
         return submission_frame
 
-    def _add_default_hparams(self):
+    def _add_default_hparams(self) -> None:
         default_params = {
             "random_state": 42,
             "lazy_dataset": False,
@@ -241,5 +237,5 @@ class FoodPricingBaseModel(LightningModule):
         }
         self.hparams.update({**default_params, **self.hparams})
 
-    def _add_model_specific_hparams(self):
+    def _add_model_specific_hparams(self) -> None:
         pass
