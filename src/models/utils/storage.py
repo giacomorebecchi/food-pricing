@@ -26,7 +26,7 @@ def get_local_models_path(
 
 def get_best_checkpoint_path(
     model_class: pl.LightningModule = None,
-    metric: str = "val_loss",
+    metric: str = "avg_val_loss",
     asc: bool = True,
 ) -> str:
     model_name = model_class.__name__ if model_class is not None else ""
