@@ -24,7 +24,9 @@ class LanguageAndVisionConcat(torch.nn.Module):
         self.dropout = torch.nn.Dropout(dropout_p)
 
     def forward(self, txt, img, label=None):  # TODO: test this None default
-        txt_features = torch.nn.functional.relu(self.language_module(txt))
+        txt_features = torch.nn.functional.relu(
+            self.language_module(torch.squeeze(txt, 1))  # added to avoid extra dim
+        )
         img_features = torch.nn.functional.relu(self.vision_module(img))
         combined = torch.cat([txt_features, img_features], dim=1)
         fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
