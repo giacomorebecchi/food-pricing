@@ -45,3 +45,17 @@ class S3Settings(BaseSettings):
 @lru_cache()
 def get_S3_settings() -> S3Settings:
     return S3Settings()
+
+
+class NotifierSettings(BaseSettings):
+    BOT_TOKEN: str
+    CHAT_ID: int
+
+    class Config:
+        env_file = ".env"
+        env_prefix = "TELEGRAM" + "_"
+
+
+@lru_cache()
+def get_notifier_settings() -> NotifierSettings:
+    return NotifierSettings()
