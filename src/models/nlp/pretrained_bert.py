@@ -63,7 +63,7 @@ class PreTrainedBERT(torch.nn.Module):
         token_emb = self.bert(
             encoded_batch["input_ids"], encoded_batch["attention_mask"]
         )
-        sent_emb = token_emb[0][:, 0, :]
+        sent_emb = token_emb[0][:, 0, :]  # [CLS Token]
         if self.add_fc:
             return self.fc(sent_emb)
         else:
