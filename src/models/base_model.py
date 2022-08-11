@@ -193,7 +193,7 @@ class FoodPricingBaseModel(LightningModule):
     def make_submission_frame(self) -> pd.DataFrame:
         test_dataloader = self.data.test_dataloader()
         submission_frame = pd.DataFrame(
-            index=self.test_dataloader.dataset.index, columns=["true", "pred"]
+            index=test_dataloader.dataset.index, columns=["true", "pred"]
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
             preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
