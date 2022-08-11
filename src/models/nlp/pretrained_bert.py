@@ -58,7 +58,7 @@ class PreTrainedBERT(torch.nn.Module):
     def prepare_sample(self, text_sample: List[str]) -> Dict:
         return self.tokenizer(text_sample, padding=True, return_tensors="pt")
 
-    def forward(self, txt):
+    def forward(self, txt: List[str]) -> torch.Tensor:
         encoded_batch = self.prepare_sample(txt)
         token_emb = self.bert(
             encoded_batch["input_ids"], encoded_batch["attention_mask"]
