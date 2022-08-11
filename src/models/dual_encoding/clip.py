@@ -28,7 +28,14 @@ class PreTrainedCLIP(torch.nn.Module):
             processor_kwargs[
                 "pretrained_model_name_or_path"
             ] = self.pretrained_model_name_or_path
-        self.processor = AutoProcessor.from_pretrained(**processor_kwargs)
+        processor_kwargs_default = {
+            "do_resize": False,
+            "do_convert_rgb": False,
+            "do_center_crop": False,
+            "do_normalize": False,
+        }
+        processor_kwargs_default.update(processor_kwargs)
+        self.processor = AutoProcessor.from_pretrained(**processor_kwargs_default)
         self.freeze_encoder()
 
     def freeze_encoder(self) -> None:
@@ -43,5 +50,5 @@ class PreTrainedCLIP(torch.nn.Module):
                 param.requires_grad = True
             self.frozen = False
 
-    def forward(self, txt, img):
+    def forward(self, sample):
         pass
