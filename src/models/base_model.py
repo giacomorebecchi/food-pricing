@@ -96,7 +96,13 @@ class FoodPricingBaseModel(LightningModule):
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "train_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            batch_size=self.hparams.batch_size,
         )
 
         return loss
@@ -106,7 +112,13 @@ class FoodPricingBaseModel(LightningModule):
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
-            "val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "val_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            batch_size=self.hparams.batch_size,
         )
         return loss
 
