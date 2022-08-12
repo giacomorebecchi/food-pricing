@@ -145,10 +145,7 @@ class FoodPricingBaseModel(LightningModule):
             [
                 Resize(size=(img_dim, img_dim)),
                 ToTensor(),
-                # all torchvision models expect the same
-                # normalization mean and std
-                # https://pytorch.org/vision/stable/models.html
-                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                Normalize(mean=self.hparams.img_mean, std=self.hparams.img_std),
             ]
         )
         return img_transform
@@ -211,6 +208,11 @@ class FoodPricingBaseModel(LightningModule):
             "output_path": self._get_path(),
             # Image and text params
             "img_dim": 224,
+            # all torchvision models expect the same
+            # normalization mean and std
+            # https://pytorch.org/vision/stable/models.html
+            "img_mean": [0.485, 0.456, 0.406],
+            "img_std": [0.229, 0.224, 0.225],
             "embedding_dim": 300,
             "language_feature_dim": 300,
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
