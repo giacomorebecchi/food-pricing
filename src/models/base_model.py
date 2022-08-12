@@ -71,6 +71,12 @@ class FoodPricingBaseModel(LightningModule):
         self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
+        self._set_seed(self.hparams.random_state)
+
+        # build dual model, which has the precedence over other transformers
+        if self.hparams.dual_model:
+            self.dual_transform = self._build_dual_transform()
+
         # build transform models
         self.txt_transform = self._build_txt_transform()
         self.img_transform = self._build_img_transform()
@@ -135,6 +141,9 @@ class FoodPricingBaseModel(LightningModule):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+
+    def _build_dual_transform(self) -> Callable:
+        return lambda _: _
 
     def _build_txt_transform(self) -> Callable:
         return lambda _: _
@@ -218,6 +227,8 @@ class FoodPricingBaseModel(LightningModule):
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
             "fusion_output_size": 512,
             "dropout_p": 0.1,
+            # Dual model
+            "dual_model": False,
             # Trainer params
             "verbose": True,
             "accumulate_grad_batches": 1,
