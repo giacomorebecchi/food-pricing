@@ -137,7 +137,7 @@ class FoodPricingBaseModel(LightningModule):
             torch.cuda.manual_seed_all(seed)
 
     def _build_txt_transform(self) -> Callable:
-        pass
+        return lambda _: _
 
     def _build_img_transform(self) -> Callable:
         img_dim = self.hparams.img_dim
