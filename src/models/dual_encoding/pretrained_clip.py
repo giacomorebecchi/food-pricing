@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import torch
 from transformers import AutoProcessor, VisionTextDualEncoderModel
@@ -75,10 +75,10 @@ class PreTrainedCLIP(torch.nn.Module):
                 param.requires_grad = True
             self.frozen = False
 
-    def prepare_sample(self, sample: Dict):
+    def prepare_sample(self, txt, img):
         inputs = self.processor(
-            text=sample["txt"],
-            images=sample["img"],
+            text=txt,
+            images=img,
             return_tensors=self.return_tensors,
             padding=True,
         )
@@ -94,8 +94,8 @@ class PreTrainedCLIP(torch.nn.Module):
                 raise ValueError("Pixel values could not be transformed into a tensor.")
         return inputs
 
-    def forward(self, sample: List):
-        inputs = self.prepare_sample(sample)
+    def forward(self, txt, img):
+        inputs = self.prepare_sample(txt, img)
         outputs = self.clip(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
