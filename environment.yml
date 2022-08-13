@@ -28,6 +28,7 @@ dependencies:
   - pytorch-lightning
   - torchvision
   - fasttext
+  - xgboost
   - black
   - jupyterlab_code_formatter
   - flake8
