@@ -71,6 +71,12 @@ class FoodPricingBaseModel(LightningModule):
         self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
+        self._set_seed(self.hparams.random_state)
+
+        # build dual model, which has the precedence over other transformers
+        if self.hparams.dual_model:
+            self.dual_transform = self._build_dual_transform()
+
         # build transform models
         self.txt_transform = self._build_txt_transform()
         self.img_transform = self._build_img_transform()
@@ -90,7 +96,13 @@ class FoodPricingBaseModel(LightningModule):
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "train_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            batch_size=self.hparams.batch_size,
         )
 
         return loss
@@ -100,7 +112,13 @@ class FoodPricingBaseModel(LightningModule):
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
-            "val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "val_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            batch_size=self.hparams.batch_size,
         )
         return loss
 
@@ -136,8 +154,11 @@ class FoodPricingBaseModel(LightningModule):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
+    def _build_dual_transform(self) -> Callable:
+        return lambda _: _
+
     def _build_txt_transform(self) -> Callable:
-        pass
+        return lambda _: _
 
     def _build_img_transform(self) -> Callable:
         img_dim = self.hparams.img_dim
@@ -145,10 +166,7 @@ class FoodPricingBaseModel(LightningModule):
             [
                 Resize(size=(img_dim, img_dim)),
                 ToTensor(),
-                # all torchvision models expect the same
-                # normalization mean and std
-                # https://pytorch.org/vision/stable/models.html
-                Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                Normalize(mean=self.hparams.img_mean, std=self.hparams.img_std),
             ]
         )
         return img_transform
@@ -211,11 +229,18 @@ class FoodPricingBaseModel(LightningModule):
             "output_path": self._get_path(),
             # Image and text params
             "img_dim": 224,
+            # all torchvision models expect the same
+            # normalization mean and std
+            # https://pytorch.org/vision/stable/models.html
+            "img_mean": [0.485, 0.456, 0.406],
+            "img_std": [0.229, 0.224, 0.225],
             "embedding_dim": 300,
             "language_feature_dim": 300,
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
             "fusion_output_size": 512,
             "dropout_p": 0.1,
+            # Dual model
+            "dual_model": False,
             # Trainer params
             "verbose": True,
             "accumulate_grad_batches": 1,

@@ -1,3 +1,5 @@
+from typing import Callable, Dict
+
 import torch
 
 
@@ -5,16 +7,23 @@ class LanguageAndVisionConcat(torch.nn.Module):
     def __init__(
         self,
         loss_fn,
-        language_module,
-        vision_module,
         language_feature_dim,
         vision_feature_dim,
         fusion_output_size,
         dropout_p,
+        language_module=None,
+        vision_module=None,
+        dual_module=None,
     ):
         super().__init__()
-        self.language_module = language_module
-        self.vision_module = vision_module
+        if dual_module is None:
+            self.language_module = language_module
+            self.vision_module = vision_module
+            self.dual_module = self._combine_modules(
+                self.language_module, self.vision_module
+            )
+        else:
+            self.dual_module = dual_module
         self.fusion = torch.nn.Linear(
             in_features=(language_feature_dim + vision_feature_dim),
             out_features=fusion_output_size,
@@ -23,11 +32,21 @@ class LanguageAndVisionConcat(torch.nn.Module):
         self.loss_fn = loss_fn
         self.dropout = torch.nn.Dropout(dropout_p)
 
+    def _combine_modules(self, language_module, vision_module) -> Callable:
+        def dual_module(txt, img) -> Dict[str, torch.Tensor]:
+            return {
+                "txt": language_module(
+                    torch.squeeze(txt, 1)
+                ),  # added to avoid extra dim
+                "img": vision_module(img),
+            }
+
+        return dual_module
+
     def forward(self, txt, img, label=None):  # TODO: test this None default
-        txt_features = torch.nn.functional.relu(
-            self.language_module(torch.squeeze(txt, 1))  # added to avoid extra dim
-        )
-        img_features = torch.nn.functional.relu(self.vision_module(img))
+        dual_output = self.dual_module(txt, img)
+        txt_features = torch.nn.functional.relu(dual_output["txt"])
+        img_features = torch.nn.functional.relu(dual_output["img"])
         combined = torch.cat([txt_features, img_features], dim=1)
         fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
         pred = self.fc(fused)
