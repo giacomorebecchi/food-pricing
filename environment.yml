@@ -24,6 +24,7 @@ dependencies:
   - scipy
   - seaborn
   - scikit-learn
+  - scikit-optimize
   - pytorch
   - pytorch-lightning
   - torchvision
