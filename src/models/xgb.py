@@ -1,5 +1,7 @@
+import itertools
+import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -30,21 +32,70 @@ class XGBBaseModel:
         self._add_model_specific_hparams()
         self._add_default_hparams()
 
+    def fit(self):
+        params_grid = self._calculate_grid()
+        self.grid_search_results = {}
+        self.best_score = None
+        for i, params in enumerate(params_grid):
+            self.grid_search_results[i] = {"params": params}
+
+            regressor = xgb_train(
+                params=params,
+                dtrain=self.d_train,
+                num_boost_round=self.hparams.num_round,
+                evals=[(self.d_dev, "dev")],
+                early_stopping_rounds=self.hparams.early_stopping_rounds,
+                verbose_eval=False,
+            )
+            self.grid_search_results[i]["best_score"] = regressor.best_score
+            if self.best_score is None or self.best_score > regressor.best_score:
+                best_iter = i
+                self.best_score = regressor.best_score
+                self.best_model = regressor[: regressor.best_iteration + 1]
+                print(
+                    "Found a new optimal parametrization with score: "
+                    f"{self.best_score}"
+                )
+
+        self.best_params = self.grid_search_results[best_iter]["params"]
+        print("The optimal model has the following parameters: ", self.best_params)
+        self._store_model()
+
     def _add_default_hparams(self) -> None:
         default_params = {
             # load data if it has already been saved
             "load_data": True,
+            # DataLoader args
             "batch_size": 32,
             "loader_workers": 8,
             "shuffle": False,
+            # img_transform hyperparameters
             "img_dim": 224,
             # all torchvision models expect the same
             # normalization mean and std
             # https://pytorch.org/vision/stable/models.html
             "img_mean": [0.485, 0.456, 0.406],
             "img_std": [0.229, 0.224, 0.225],
+            # Best hyperparameters settings
+            "max_iter": 50,
+            "max_seconds": 60 * 60,
+            # "growpolicy": ["depthwise", "lossguide"]
+            # XGB train hyperparameters
+            "num_round": 100,
+            "early_stopping_rounds": 5,
         }
-        self.hparams.update({**default_params, **self.hparams})
+        xgb_default_params = {
+            # XGBRegressor hyperparameters
+            "booster": "gbtree",
+            "tree_method": "hist",
+            "colsample_bytree": [0.5, 0.8, 1],
+            "objective": "reg:squarederror",
+            "eta": [0.3, 0.5],
+            "max_depth": [6, 10, 15],
+            "subsample": [0.8, 1],
+        }
+        self.xgb_keys = xgb_default_params.keys()
+        self.hparams.update({**default_params, **xgb_default_params, **self.hparams})
 
     def _add_model_specific_hparams(self) -> None:
         pass
@@ -76,6 +127,22 @@ class XGBBaseModel:
             ar.save_binary(data_path)
         return ar
 
+    def _calculate_grid(self) -> List[Dict]:
+        params = {key: self.hparams[key] for key in self.xgb_keys}
+        keys, values = zip(*params.items())
+        values = [[v] if not isinstance(v, (list, tuple)) else v for v in values]
+        permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
+        n = len(permutations_dicts)
+        print(f"Found {n} different params combinations")
+        if n > (n_max := self.hparams.max_iter):
+            print(
+                "The number of different params combinations is greater than "
+                f"the limit you specified through the parameter 'max_iter' ({n_max})."
+            )
+            permutations_dicts = permutations_dicts[:n_max]
+            print(f"Exploring only the first {n_max} combinations.")
+        return permutations_dicts
+
     def _get_data_path(self, split: str) -> str:
         return get_local_models_path(
             path=["data"], model=self, file_name=split, file_format=".buffer"
@@ -95,6 +162,20 @@ class XGBBaseModel:
             ]
         ).numpy()
         return ar
+
+    def _store_model(self) -> None:
+        fname = self.hparams.objective + str(round(self.best_score, 3))
+        model_path = get_local_models_path(
+            path=[], model=self, file_name="model_" + fname, file_format=".json"
+        )
+        self.best_model.save_model(model_path)
+
+        params = {**self.hparams, **self.best_params}
+        params_path = get_local_models_path(
+            path=[], model=self, file_name="params_" + fname, file_format=".json"
+        )
+        with open(params_path, mode="w") as f:
+            json.dump(params, f)
 
 
 class XGBBERTResNet152(XGBBaseModel):
