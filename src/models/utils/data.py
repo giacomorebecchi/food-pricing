@@ -70,7 +70,7 @@ class FoodPricingDataset(Dataset):
         )
         txt = self.txt_transform(self.data.loc[idx, "txt"])
         if self.dual_transform is not None:
-            txt, img = self.dual_transform(txt, img)
+            txt, img = self.dual_transform([txt], img.unsqueeze(0))
         lat = self.data.loc[idx, "lat"]
         lon = self.data.loc[idx, "lon"]
         label = self.data.loc[idx, "price_fractional"]
