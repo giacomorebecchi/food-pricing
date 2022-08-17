@@ -28,6 +28,7 @@ def get_best_checkpoint_path(
     model_class: pl.LightningModule = None,
     metric: str = "avg_val_loss",
     asc: bool = True,
+    file_format: str = ".ckpt",
 ) -> str:
     model_name = model_class.__name__ if model_class is not None else ""
     current_path = PurePosixPath(__file__).parent
@@ -35,7 +36,7 @@ def get_best_checkpoint_path(
     checkpoints = [
         path
         for el in glob.glob(str(parent_path))
-        if os.path.isfile(path := PurePosixPath(el)) and path.suffix == ".ckpt"
+        if os.path.isfile(path := PurePosixPath(el)) and path.suffix == file_format
     ]
     path_score = {
         str(path): float(path.stem.split("=")[-1])
