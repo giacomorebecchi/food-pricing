@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 from typing import Any, Callable, Dict, List
 
 import numpy as np
+import pandas as pd
 import torch
 from pytorch_lightning.utilities.parsing import AttributeDict
 from torch.utils.data import DataLoader
@@ -119,6 +120,26 @@ class XGBBaseModel:
         xgb.best_model.load_model(model_path)
         xgb.best_model.load_config(config)
         return xgb
+
+    def make_submission_frame(self) -> pd.DataFrame:
+        preds = self.best_model.predict(self.d_test)
+        test_dataset = FoodPricingDataset(
+            img_transform=lambda _: None,
+            txt_transform=lambda _: None,
+            split="test",
+        )
+        true = torch.hstack(
+            [test_dataset[i]["label"] for i in range(len(test_dataset))]
+        ).numpy()
+        idxs = [test_dataset[i]["id"] for i in range(len(test_dataset))]
+        submission_frame = pd.DataFrame(
+            {
+                "true": true,
+                "pred": preds,
+            },
+            index=idxs,
+        )
+        return submission_frame
 
     def _add_default_hparams(self) -> None:
         default_params = {
