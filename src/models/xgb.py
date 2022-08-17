@@ -1,7 +1,7 @@
 import itertools
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 import numpy as np
 import torch
@@ -100,11 +100,11 @@ class XGBBaseModel:
     def _add_model_specific_hparams(self) -> None:
         pass
 
-    def _build_txt_transform(self):
-        pass
+    def _build_txt_transform(self) -> Callable:
+        return lambda _: _
 
-    def _build_img_transform(self):
-        pass
+    def _build_img_transform(self) -> Callable:
+        return lambda _: _
 
     def _build_dataset(self, split: str) -> DMatrix:
         data_path = self._get_data_path(split)
