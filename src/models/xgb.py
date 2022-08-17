@@ -1,6 +1,7 @@
 import itertools
 import json
 import os
+from pathlib import PurePosixPath
 from typing import Any, Callable, Dict, List
 
 import numpy as np
@@ -10,13 +11,13 @@ from torch.utils.data import DataLoader
 from torchvision.models import resnet152
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
-from xgboost import DMatrix
+from xgboost import Booster, DMatrix
 from xgboost import train as xgb_train
 
 from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.data import FoodPricingDataset
-from .utils.storage import get_local_models_path
+from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
 
 class XGBBaseModel:
@@ -68,7 +69,56 @@ class XGBBaseModel:
 
         self.best_params = self.grid_search_results[best_iter]["params"]
         print("The optimal model has the following parameters: ", self.best_params)
-        self._store_model()
+        self.store_model()
+
+    def store_model(self) -> None:
+        fname = self.hparams.objective + str(round(self.best_score, 3))
+        model_path = get_local_models_path(
+            path=[], model=self, file_name="model_" + fname, file_format=".json"
+        )
+        self.best_model.save_model(model_path)
+
+        config_path = get_local_models_path(
+            path=[], model=self, file_name="config_" + fname, file_format=".json"
+        )
+        with open(config_path, mode="w") as f:
+            f.write(self.best_model.save_config())
+
+        params = {**self.hparams, **self.best_params}
+        params_path = get_local_models_path(
+            path=[], model=self, file_name="params_" + fname, file_format=".json"
+        )
+        with open(params_path, mode="w") as f:
+            json.dump(params, f)
+
+    @classmethod
+    def load_from_best_checkpoint(cls, **kwargs):
+        default_kwargs = {
+            "metric": "reg:squarederror",
+            "file_format": ".json",
+        }
+        kwargs.update(**default_kwargs, **kwargs)
+        path = PurePosixPath(get_best_checkpoint_path(model_class=cls, **kwargs))
+        base_stem = path.stem.split("_")[1:]
+        model_path = path.with_stem("_".join(["model", *base_stem]))
+        config_path = path.with_stem("_".join(["config", *base_stem]))
+        params_path = path.with_stem("_".join(["params", *base_stem]))
+        return cls.load_from_checkpoint(
+            model_path=model_path, config_path=config_path, params_path=params_path
+        )
+
+    @classmethod
+    def load_from_checkpoint(cls, model_path: str, config_path: str, params_path: str):
+        with open(params_path, mode="r") as f:
+            params = json.load(f)
+        xgb = cls(**params)
+
+        with open(config_path, mode="r") as f:
+            config = f.read()
+        xgb.best_model = Booster()
+        xgb.best_model.load_model(model_path)
+        xgb.best_model.load_config(config)
+        return xgb
 
     def _add_default_hparams(self) -> None:
         default_params = {
@@ -177,20 +227,6 @@ class XGBBaseModel:
             ]
         ).numpy()
         return ar
-
-    def _store_model(self) -> None:
-        fname = self.hparams.objective + str(round(self.best_score, 3))
-        model_path = get_local_models_path(
-            path=[], model=self, file_name="model_" + fname, file_format=".json"
-        )
-        self.best_model.save_model(model_path)
-
-        params = {**self.hparams, **self.best_params}
-        params_path = get_local_models_path(
-            path=[], model=self, file_name="params_" + fname, file_format=".json"
-        )
-        with open(params_path, mode="w") as f:
-            json.dump(params, f)
 
 
 class XGBBERTResNet152(XGBBaseModel):
