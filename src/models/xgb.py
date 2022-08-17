@@ -13,6 +13,7 @@ from tqdm import tqdm
 from xgboost import DMatrix
 from xgboost import train as xgb_train
 
+from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_local_models_path
@@ -21,9 +22,16 @@ from .utils.storage import get_local_models_path
 class XGBBaseModel:
     def __init__(self, **kwargs):
         self.save_hyperparameters(kwargs)
+
+        # build dual model, which has the precedence over other transformers
+        if self.hparams.dual_model:
+            self.dual_transform = self._build_dual_transform()
+
+        # build transform models
         self.txt_transform = self._build_txt_transform()
         self.img_transform = self._build_img_transform()
-        self.dual_transform = self._build_dual_transform()
+
+        # build the datasets
         self.d_train = self._build_dataset("train")
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
@@ -64,6 +72,8 @@ class XGBBaseModel:
 
     def _add_default_hparams(self) -> None:
         default_params = {
+            # No dual encoding by default
+            "dual_model": False,
             # load data if it has already been saved
             "load_data": True,
             # DataLoader args
@@ -118,7 +128,7 @@ class XGBBaseModel:
             dataset = FoodPricingDataset(
                 img_transform=self.img_transform,
                 txt_transform=self.txt_transform,
-                dual_transform=self.dual_transform,
+                dual_transform=self.dual_transform if self.hparams.dual_model else None,
                 split=split,
             )
             dataloader = DataLoader(
@@ -232,7 +242,52 @@ class XGBCLIP(XGBBaseModel):
         super().__init__(**kwargs)
 
     def _build_img_transform(self):
-        pass
+        img_dim = self.hparams.img_dim
+        transformer = Compose(
+            [
+                Resize(size=(img_dim, img_dim)),
+                ToTensor(),
+                Normalize(mean=self.hparams.img_mean, std=self.hparams.img_std),
+            ]
+        )
+        return transformer
 
     def _build_dual_transform(self):
-        pass
+        model_kwargs = {"pretrained_model_name_or_path": self.hparams.clip_model}
+        processor_kwargs = {
+            "pretrained_model_name_or_path": self.hparams.processor_clip_model
+        }
+        clip = PreTrainedCLIP(
+            model_kwargs=model_kwargs,
+            processor_kwargs=processor_kwargs,
+            img_feature_dim=self.hparams.language_feature_dim,
+            txt_feature_dim=self.hparams.vision_feature_dim,
+            return_tensors=None,
+        )
+        self._update_clip_hparams(clip)
+        return clip
+
+    def _update_clip_hparams(self, clip: PreTrainedCLIP) -> None:
+        processor_config = clip.processor.feature_extractor
+        self.hparams.update(
+            {
+                "img_dim": processor_config.crop_size,
+                "img_mean": processor_config.image_mean,
+                "img_std": processor_config.image_std,
+            }
+        )
+        self.hparams.update(
+            {
+                "projection_dim": clip.encoder_features,
+            }
+        )
+
+    def _add_model_specific_hparams(self) -> None:
+        model_specific_hparams = {
+            "dual_model": True,
+            "clip_model": "clip-italian/clip-italian",
+            "processor_clip_model": self.hparams.get(
+                "clip_model", "clip-italian/clip-italian"
+            ),  # Default is same as "clip_model" param
+        }
+        self.hparams.update({**model_specific_hparams, **self.hparams})
