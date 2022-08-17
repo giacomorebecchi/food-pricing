@@ -23,6 +23,7 @@ class XGBBaseModel:
         self.save_hyperparameters(kwargs)
         self.txt_transform = self._build_txt_transform()
         self.img_transform = self._build_img_transform()
+        self.dual_transform = self._build_dual_transform()
         self.d_train = self._build_dataset("train")
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
@@ -106,6 +107,9 @@ class XGBBaseModel:
     def _build_img_transform(self) -> Callable:
         return lambda _: _
 
+    def _build_dual_transform(self):
+        return None
+
     def _build_dataset(self, split: str) -> DMatrix:
         data_path = self._get_data_path(split)
         if self.hparams.load_data and os.path.exists(data_path):
@@ -114,6 +118,7 @@ class XGBBaseModel:
             dataset = FoodPricingDataset(
                 img_transform=self.img_transform,
                 txt_transform=self.txt_transform,
+                dual_transform=self.dual_transform,
                 split=split,
             )
             dataloader = DataLoader(
@@ -220,3 +225,14 @@ class XGBBERTResNet152(XGBBaseModel):
             ),
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
+
+
+class XGBCLIP(XGBBaseModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _build_img_transform(self):
+        pass
+
+    def _build_dual_transform(self):
+        pass
