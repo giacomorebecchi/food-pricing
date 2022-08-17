@@ -253,6 +253,9 @@ class XGBCLIP(XGBBaseModel):
         return transformer
 
     def _build_dual_transform(self):
+        def extract_result(result):
+            return result["txt"], result["img"]
+
         model_kwargs = {"pretrained_model_name_or_path": self.hparams.clip_model}
         processor_kwargs = {
             "pretrained_model_name_or_path": self.hparams.processor_clip_model
@@ -260,12 +263,10 @@ class XGBCLIP(XGBBaseModel):
         clip = PreTrainedCLIP(
             model_kwargs=model_kwargs,
             processor_kwargs=processor_kwargs,
-            img_feature_dim=self.hparams.language_feature_dim,
-            txt_feature_dim=self.hparams.vision_feature_dim,
             return_tensors=None,
         )
         self._update_clip_hparams(clip)
-        return clip
+        return lambda txt, img: extract_result(clip(txt, img))
 
     def _update_clip_hparams(self, clip: PreTrainedCLIP) -> None:
         processor_config = clip.processor.feature_extractor
