@@ -70,7 +70,7 @@ class PreTrainedCLIP(torch.nn.Module):
 
     def unfreeze_encoder(self) -> None:
         if self.frozen:
-            logging.info("Encoder model fine-tuning")
+            logging.info(f"Encoder model {self.__class__.__name__} started fine-tuning")
             for param in self.clip.parameters():
                 param.requires_grad = True
             self.frozen = False
