@@ -43,4 +43,4 @@ dependencies:
   - captum
   - flask
   - transformers
-  - knockknock
+  - python-telegram-bot
