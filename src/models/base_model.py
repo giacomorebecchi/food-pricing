@@ -12,6 +12,7 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
@@ -123,8 +124,10 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def validation_epoch_end(self, val_step_outputs) -> None:
-        avg_loss = torch.stack(tuple(val_step_outputs)).mean()
-        self.log("avg_val_loss", avg_loss, logger=True)
+        self.avg_val_loss = torch.stack(
+            tuple(val_step_outputs)
+        ).mean()  # stored in order to be accessed by Callbacks
+        self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
@@ -195,8 +198,10 @@ class FoodPricingBaseModel(LightningModule):
             verbose=self.hparams.verbose,
         )
 
+        notifier_callback = TelegramBotCallback()
+
         trainer_params = {
-            "callbacks": [checkpoint_callback, early_stop_callback],
+            "callbacks": [checkpoint_callback, early_stop_callback, notifier_callback],
             "default_root_dir": self.hparams.output_path,
             "accumulate_grad_batches": self.hparams.accumulate_grad_batches,
             "accelerator": self.hparams.accelerator,
