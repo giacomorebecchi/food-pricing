@@ -2,7 +2,10 @@ import torch
 
 from .base_model import FoodPricingBaseModel
 from .dual_encoding.pretrained_clip import PreTrainedCLIP
-from .feature_combinators import LanguageAndVisionConcat
+from .feature_combinators import (
+    LanguageAndVisionConcat,
+    LanguageAndVisionWeightedImportance,
+)
 
 
 class FPCLIPConcatModel(FoodPricingBaseModel):
@@ -59,3 +62,24 @@ class FPCLIPConcatModel(FoodPricingBaseModel):
             ),  # Default is same as "clip_model" param
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
+
+
+class FPCLIPWeightedConcatModel(FPCLIPConcatModel):
+    def __init__(self, *args, **kwargs):
+        super(FPCLIPWeightedConcatModel, self).__init__(*args, **kwargs)
+
+    def _build_model(self):
+        self.weighting_module = LanguageAndVisionWeightedImportance(
+            dual_module=self.clip,
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+        )
+
+        return LanguageAndVisionConcat(
+            loss_fn=torch.nn.MSELoss(),
+            dual_module=self.weighting_module,
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+            fusion_output_size=self.hparams.fusion_output_size,
+            dropout_p=self.hparams.dropout_p,
+        )
