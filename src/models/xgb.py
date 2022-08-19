@@ -17,6 +17,7 @@ from xgboost import train as xgb_train
 
 from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .nlp.pretrained_bert import PreTrainedBERT
+from .utils.callbacks import XGBTelegramBotCallback
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
@@ -37,6 +38,7 @@ class XGBBaseModel:
         self.d_train = self._build_dataset("train")
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
+        self.telegram_callback = XGBTelegramBotCallback()
 
     def save_hyperparameters(self, kwargs: Dict[str, Any]) -> None:
         self.hparams = AttributeDict(kwargs)
@@ -45,9 +47,12 @@ class XGBBaseModel:
 
     def fit(self):
         params_grid = self._calculate_grid()
+        self.n_models = len(params_grid)
+        self.telegram_callback.on_fit_start(self)
         self.grid_search_results = {}
         self.best_score = None
         for i, params in enumerate(params_grid):
+            self.telegram_callback.on_train_epoch_start()
             self.grid_search_results[i] = {"params": params}
 
             regressor = xgb_train(
@@ -59,6 +64,9 @@ class XGBBaseModel:
                 verbose_eval=False,
             )
             self.grid_search_results[i]["best_score"] = regressor.best_score
+            self.telegram_callback.on_validation_epoch_end(
+                val_loss=regressor.best_score
+            )
             if self.best_score is None or self.best_score > regressor.best_score:
                 best_iter = i
                 self.best_score = regressor.best_score
@@ -71,6 +79,7 @@ class XGBBaseModel:
         self.best_params = self.grid_search_results[best_iter]["params"]
         print("The optimal model has the following parameters: ", self.best_params)
         self.store_model()
+        self.telegram_callback.on_fit_end(self)
 
     def store_model(self) -> None:
         fname = self.hparams.objective + str(round(self.best_score, 3))
@@ -248,6 +257,9 @@ class XGBBaseModel:
             ]
         ).numpy()
         return ar
+
+    def _get_name(self) -> str:
+        return self.__class__.__name__
 
 
 class XGBBERTResNet152(XGBBaseModel):

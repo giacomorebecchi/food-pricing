@@ -12,6 +12,7 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
 
@@ -123,8 +124,10 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def validation_epoch_end(self, val_step_outputs) -> None:
-        avg_loss = torch.stack(tuple(val_step_outputs)).mean()
-        self.log("avg_val_loss", avg_loss, logger=True)
+        self.avg_val_loss = torch.stack(
+            tuple(val_step_outputs)
+        ).mean()  # stored in order to be accessed by Callbacks
+        self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
@@ -180,6 +183,14 @@ class FoodPricingBaseModel(LightningModule):
         return str(get_local_models_path(path, self, file_name, file_format))
 
     def _get_trainer_params(self) -> Dict:
+        backup_callback = ModelCheckpoint(
+            dirpath=self.hparams.output_path,
+            filename="backup-{epoch}-{avg_val_loss:.2f}",
+            every_n_epochs=self.hparams.backup_n_epochs,
+            save_on_train_epoch_end=True,
+            verbose=self.hparams.verbose,
+        )
+
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.hparams.output_path,
             filename="{epoch}-{avg_val_loss:.2f}",
@@ -195,8 +206,17 @@ class FoodPricingBaseModel(LightningModule):
             verbose=self.hparams.verbose,
         )
 
+        notifier_callback = TelegramBotCallback()
+
+        callbacks = [
+            backup_callback,
+            checkpoint_callback,
+            early_stop_callback,
+            notifier_callback,
+        ]
+
         trainer_params = {
-            "callbacks": [checkpoint_callback, early_stop_callback],
+            "callbacks": callbacks,
             "default_root_dir": self.hparams.output_path,
             "accumulate_grad_batches": self.hparams.accumulate_grad_batches,
             "accelerator": self.hparams.accelerator,
@@ -247,14 +267,15 @@ class FoodPricingBaseModel(LightningModule):
             "accelerator": "auto",
             "devices": 1,
             "max_epochs": 100,
-            "gradient_clip_value": 1,
+            "gradient_clip_value": None,
             "num_sanity_val_steps": 2,
             # Callback params
             "checkpoint_monitor": "avg_val_loss",
             "checkpoint_monitor_mode": "min",
             "early_stop_monitor": "avg_val_loss",
-            "early_stop_min_delta": 0.001,
-            "early_stop_patience": 3,
+            "early_stop_min_delta": 0,
+            "early_stop_patience": 10,
+            "backup_n_epochs": 10,
             # Optimizer params
             "lr": 0.001,
         }
