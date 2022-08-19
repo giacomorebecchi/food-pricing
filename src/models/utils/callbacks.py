@@ -34,13 +34,15 @@ class TelegramBotCallback(Callback):
     def on_train_epoch_start(
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
+        self.n_epoch += 1
         self.epoch_start = datetime.now()
 
     def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
+        if self.n_epoch == 0:  # This means we are in a sanity check phase
+            return None
         self.val_losses.append(val_loss := pl_module.avg_val_loss)
-        self.n_epoch += 1
         epoch_duration = datetime.now() - self.epoch_start
         contents = [
             f"Validation finished for epoch {self.n_epoch} out of {self.max_epochs}",
@@ -48,8 +50,8 @@ class TelegramBotCallback(Callback):
             "Obtained validation loss: %.2f" % val_loss,
         ]
         if self.n_epoch > 1:
-            if val_loss > self.best_result:
-                improvement = val_loss - self.best_result
+            if val_loss < self.best_result:
+                improvement = self.best_result - val_loss
                 contents.append(
                     "New best result, with an improvement of: %.2f" % improvement
                 )
