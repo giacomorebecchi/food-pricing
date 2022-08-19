@@ -183,6 +183,14 @@ class FoodPricingBaseModel(LightningModule):
         return str(get_local_models_path(path, self, file_name, file_format))
 
     def _get_trainer_params(self) -> Dict:
+        backup_callback = ModelCheckpoint(
+            dirpath=self.hparams.output_path,
+            filename="backup-{epoch}-{avg_val_loss:.2f}",
+            every_n_epochs=self.hparams.backup_n_epochs,
+            save_on_train_epoch_end=True,
+            verbose=self.hparams.verbose,
+        )
+
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.hparams.output_path,
             filename="{epoch}-{avg_val_loss:.2f}",
@@ -200,8 +208,15 @@ class FoodPricingBaseModel(LightningModule):
 
         notifier_callback = TelegramBotCallback()
 
+        callbacks = [
+            backup_callback,
+            checkpoint_callback,
+            early_stop_callback,
+            notifier_callback,
+        ]
+
         trainer_params = {
-            "callbacks": [checkpoint_callback, early_stop_callback, notifier_callback],
+            "callbacks": callbacks,
             "default_root_dir": self.hparams.output_path,
             "accumulate_grad_batches": self.hparams.accumulate_grad_batches,
             "accelerator": self.hparams.accelerator,
@@ -252,14 +267,15 @@ class FoodPricingBaseModel(LightningModule):
             "accelerator": "auto",
             "devices": 1,
             "max_epochs": 100,
-            "gradient_clip_value": 1,
+            "gradient_clip_value": None,
             "num_sanity_val_steps": 2,
             # Callback params
             "checkpoint_monitor": "avg_val_loss",
             "checkpoint_monitor_mode": "min",
             "early_stop_monitor": "avg_val_loss",
-            "early_stop_min_delta": 0.001,
-            "early_stop_patience": 3,
+            "early_stop_min_delta": 0,
+            "early_stop_patience": 10,
+            "backup_n_epochs": 10,
             # Optimizer params
             "lr": 0.001,
         }
