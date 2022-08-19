@@ -8,7 +8,6 @@ import fasttext
 import numpy as np
 import pandas as pd
 import torch
-import torchvision
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -17,6 +16,7 @@ from .base_model import FoodPricingBaseModel
 from .feature_combinators import LanguageAndVisionConcat
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_local_models_path
+from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class FPMeanBaselineModel:
@@ -108,24 +108,12 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
         return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
 
     def _build_model(self):
-        # we're going to pass the outputs of our text
-        # transform through an additional trainable layer
-        # rather than fine-tuning the transform
         language_module = torch.nn.Linear(
             in_features=self.hparams.embedding_dim,
             out_features=self.hparams.language_feature_dim,
         )
 
-        # easiest way to get features rather than
-        # classification is to overwrite last layer
-        # with an identity transformation, we'll reduce
-        # dimension using a Linear layer, resnet is 2048 out
-        vision_module = torchvision.models.resnet152(weights="DEFAULT")
-        for param in vision_module.parameters():
-            param.requires_grad = False
-        vision_module.fc = torch.nn.Linear(
-            in_features=2048, out_features=self.hparams.vision_feature_dim
-        )
+        vision_module = PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim)
 
         return LanguageAndVisionConcat(
             loss_fn=torch.nn.MSELoss(),

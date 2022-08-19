@@ -9,7 +9,6 @@ import pandas as pd
 import torch
 from pytorch_lightning.utilities.parsing import AttributeDict
 from torch.utils.data import DataLoader
-from torchvision.models import resnet152
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
 from xgboost import Booster, DMatrix
@@ -20,11 +19,14 @@ from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.callbacks import XGBTelegramBotCallback
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class XGBBaseModel:
     def __init__(self, **kwargs):
         self.save_hyperparameters(kwargs)
+
+        self.telegram_callback = XGBTelegramBotCallback()
 
         # build dual model, which has the precedence over other transformers
         if self.hparams.dual_model:
@@ -38,7 +40,6 @@ class XGBBaseModel:
         self.d_train = self._build_dataset("train")
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
-        self.telegram_callback = XGBTelegramBotCallback()
 
     def save_hyperparameters(self, kwargs: Dict[str, Any]) -> None:
         self.hparams = AttributeDict(kwargs)
@@ -205,6 +206,7 @@ class XGBBaseModel:
         if self.hparams.load_data and os.path.exists(data_path):
             ar = DMatrix(data_path)
         else:
+            self.telegram_callback.on_dataset_preparation(self, split)
             dataset = FoodPricingDataset(
                 img_transform=self.img_transform,
                 txt_transform=self.txt_transform,
@@ -283,7 +285,6 @@ class XGBBERTResNet152(XGBBaseModel):
         return language_transform
 
     def _build_img_transform(self):
-        module = resnet152(weights="DEFAULT")
         img_dim = self.hparams.img_dim
         transformer = Compose(
             [
@@ -292,8 +293,7 @@ class XGBBERTResNet152(XGBBaseModel):
                 Normalize(mean=self.hparams.img_mean, std=self.hparams.img_std),
             ]
         )
-        for param in module.parameters():
-            param.requires_grad = False
+        module = PreTrainedResNet152()
         return lambda img: module(torch.unsqueeze(transformer(img), 0))
 
     def _add_model_specific_hparams(self) -> None:
