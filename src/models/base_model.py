@@ -31,6 +31,11 @@ class FoodPricingBaseModel(LightningModule):
             self.generator = torch.Generator()
             self.generator.manual_seed(self.model.hparams.random_state)
 
+            # initialize datasets
+            self.train_dataset = self._build_dataset("train")
+            self.dev_dataset = self._build_dataset("dev")
+            self.test_dataset = self._build_dataset("test")
+
         def _build_dataset(self, split: str) -> Dataset:
             if self.hparams.lazy_dataset:
                 return FoodPricingLazyDataset(
@@ -46,9 +51,8 @@ class FoodPricingBaseModel(LightningModule):
                 )
 
         def train_dataloader(self) -> DataLoader:
-            self._train_dataset = self._build_dataset("train")
             return DataLoader(
-                dataset=self._train_dataset,
+                dataset=self.train_dataset,
                 shuffle=self.hparams.shuffle_train_dataset,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
@@ -57,9 +61,8 @@ class FoodPricingBaseModel(LightningModule):
             )
 
         def val_dataloader(self) -> DataLoader:
-            self._dev_dataset = self._build_dataset("dev")
             return DataLoader(
-                dataset=self._dev_dataset,
+                dataset=self.dev_dataset,
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
@@ -68,9 +71,8 @@ class FoodPricingBaseModel(LightningModule):
             )
 
         def test_dataloader(self) -> DataLoader:
-            self._test_dataset = self._build_dataset("test")
             return DataLoader(
-                dataset=self._test_dataset,
+                dataset=self.test_dataset,
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
