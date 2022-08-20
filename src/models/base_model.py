@@ -136,7 +136,11 @@ class FoodPricingBaseModel(LightningModule):
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            factor=self.hparams.lr_scheduler_factor,
+            patience=self.hparams.lr_scheduler_patience,
+        )
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -296,6 +300,8 @@ class FoodPricingBaseModel(LightningModule):
             "backup_n_epochs": 10,
             # Optimizer params
             "lr": 0.001,
+            "lr_scheduler_factor": 0.2,
+            "lr_scheduler_patience": 5,
         }
         self.hparams.update({**default_params, **self.hparams})
 
