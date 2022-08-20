@@ -136,7 +136,7 @@ class FoodPricingBaseModel(LightningModule):
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.RAdam(
-            self.model.parameters(),
+            self.parameters(),
             lr=self.hparams.optimizer_lr,
             weight_decay=self.hparams.optimizer_weight_decay,
         )
