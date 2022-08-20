@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import torch
 from transformers import AutoProcessor, VisionTextDualEncoderModel
@@ -94,7 +94,7 @@ class PreTrainedCLIP(torch.nn.Module):
                 raise ValueError("Pixel values could not be transformed into a tensor.")
         return inputs
 
-    def forward(self, txt, img):
+    def forward(self, txt, img) -> Tuple[torch.Tensor, torch.Tensor]:
         inputs = self.prepare_sample(txt, img)
         outputs = self.clip(
             input_ids=inputs["input_ids"],
@@ -102,12 +102,12 @@ class PreTrainedCLIP(torch.nn.Module):
             pixel_values=inputs["pixel_values"],
             return_loss=False,
         )
-        result = {
-            "img": self.img_fc(outputs.image_embeds)
+        txt = (
+            self.txt_fc(outputs.text_embeds) if self.add_txt_fc else outputs.text_embeds
+        )
+        img = (
+            self.img_fc(outputs.image_embeds)
             if self.add_img_fc
-            else outputs.image_embeds,
-            "txt": self.txt_fc(outputs.text_embeds)
-            if self.add_txt_fc
-            else outputs.text_embeds,
-        }
-        return result
+            else outputs.image_embeds
+        )
+        return txt, img
