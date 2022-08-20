@@ -94,9 +94,13 @@ class FoodPricingBaseModel(LightningModule):
 
         self._set_seed(self.hparams.random_state)
 
-        # build dual model, which has the precedence over other transformers
-        if self.hparams.dual_model:
-            self.dual_transform = self._build_dual_transform()
+        # build dual module, which has the precedence over other transformers
+        if self.hparams.dual_module:
+            self.dual_module = self._build_dual_module()
+        # else, build the language and vision modules separately
+        else:
+            self.language_module = self._build_txt_module()
+            self.vision_module = self._build_img_module()
 
         # build transform models
         self.txt_transform = self._build_txt_transform()
@@ -106,16 +110,28 @@ class FoodPricingBaseModel(LightningModule):
         self.data = self.DataModule(self)
 
         # set up model and training
-        self.model = self._build_model()
+        if self.hparams.attention_module:
+            self.attention_module = self._build_attention_module()
+        self.fusion_module = self._build_fusion_module()
         self.trainer_params = self._get_trainer_params()
 
+        # defining the loss function
+        self.loss_fn = torch.nn.MSELoss()
+
     def forward(self, txt, img, label=None):
-        return self.model(txt, img, label)
+        if self.hparams.dual_module:
+            txt, img = self.dual_module(txt, img)
+        else:
+            txt = self.language_module(txt)
+            img = self.vision_module(img)
+        if self.hparams.attention_module:
+            txt, img = self.attention_module(txt, img)
+        pred = self.fusion_module(txt, img)
+        loss = self.loss_fn(pred, label) if label is not None else None
+        return pred, loss
 
     def training_step(self, batch: Dict, batch_nb) -> torch.Tensor:
-        preds, loss = self.forward(
-            txt=batch["txt"], img=batch["img"], label=batch["label"]
-        )
+        _, loss = self.forward(txt=batch["txt"], img=batch["img"], label=batch["label"])
         self.log(
             "train_loss",
             loss,
@@ -129,7 +145,7 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_nb) -> torch.Tensor:
-        preds, loss = self.eval().forward(
+        _, loss = self.eval().forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
@@ -178,7 +194,7 @@ class FoodPricingBaseModel(LightningModule):
         best_checkpoint_path = get_best_checkpoint_path(model_class=cls, **kwargs)
         return cls.load_from_checkpoint(checkpoint_path=best_checkpoint_path)
 
-    def _set_seed(self, seed) -> None:
+    def _set_seed(self, seed: int) -> None:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -199,7 +215,13 @@ class FoodPricingBaseModel(LightningModule):
         module.unfreeze_encoder()
         # TODO: Add module.parameters to optimizer
 
-    def _build_dual_transform(self) -> Callable:
+    def _build_dual_module(self) -> Callable:
+        return lambda _: _
+
+    def _build_txt_module(self) -> Callable:
+        return lambda _: _
+
+    def _build_img_module(self) -> Callable:
         return lambda _: _
 
     def _build_txt_transform(self) -> Callable:
@@ -216,7 +238,10 @@ class FoodPricingBaseModel(LightningModule):
         )
         return img_transform
 
-    def _build_model(self) -> torch.nn.Module:
+    def _build_attention_module(self) -> torch.nn.Module:
+        pass
+
+    def _build_fusion_module(self) -> torch.nn.Module:
         pass
 
     def _get_path(
@@ -276,7 +301,7 @@ class FoodPricingBaseModel(LightningModule):
             index=test_dataloader.dataset.index, columns=["true", "pred"]
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
-            preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
+            preds, _ = self.eval().to("cpu")(batch["txt"], batch["img"])
             submission_frame.loc[batch["id"], "true"] = batch["label"].squeeze(-1)
             submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
         return submission_frame
@@ -301,8 +326,10 @@ class FoodPricingBaseModel(LightningModule):
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
             "fusion_output_size": 512,
             "dropout_p": 0.1,
-            # Dual model
-            "dual_model": False,
+            # Dual module
+            "dual_module": False,
+            # Attention module
+            "attention_module": False,
             # Trainer params
             "verbose": True,
             "accumulate_grad_batches": 1,
