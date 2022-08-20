@@ -24,13 +24,19 @@ class LanguageAndVisionConcat(torch.nn.Module):
             )
         else:
             self.dual_module = dual_module
-        self.fusion = torch.nn.Linear(
-            in_features=(language_feature_dim + vision_feature_dim),
-            out_features=fusion_output_size,
+        self.txt_relu = torch.nn.ReLU()
+        self.img_relu = torch.nn.ReLU()
+        self.fusion = torch.nn.Sequential(
+            torch.nn.LayerNorm(language_feature_dim + vision_feature_dim),
+            torch.nn.Linear(
+                in_features=(language_feature_dim + vision_feature_dim),
+                out_features=fusion_output_size,
+            ),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(dropout_p),
+            torch.nn.Linear(in_features=fusion_output_size, out_features=1),
         )
-        self.fc = torch.nn.Linear(in_features=fusion_output_size, out_features=1)
         self.loss_fn = loss_fn
-        self.dropout = torch.nn.Dropout(dropout_p)
 
     def _combine_modules(self, language_module, vision_module) -> Callable:
         def dual_module(txt, img) -> Dict[str, torch.Tensor]:
@@ -45,11 +51,10 @@ class LanguageAndVisionConcat(torch.nn.Module):
 
     def forward(self, txt, img, label=None):  # TODO: test this None default
         dual_output = self.dual_module(txt, img)
-        txt_features = torch.nn.functional.relu(dual_output["txt"])
-        img_features = torch.nn.functional.relu(dual_output["img"])
+        txt_features = self.txt_relu(dual_output["txt"])
+        img_features = self.img_relu(dual_output["img"])
         combined = torch.cat([txt_features, img_features], dim=1)
-        fused = self.dropout(torch.nn.functional.relu(self.fusion(combined)))
-        pred = self.fc(fused)
+        pred = self.fusion(combined)
         loss = self.loss_fn(pred, label) if label is not None else label
         return (pred, loss)
 
@@ -72,9 +77,12 @@ class LanguageAndVisionWeightedImportance(torch.nn.Module):
             )
         else:
             self.dual_module = dual_module
-        self.fusion = torch.nn.Linear(
-            in_features=(language_feature_dim + vision_feature_dim),
-            out_features=2,
+        self.fusion = torch.nn.Sequential(
+            torch.nn.Linear(
+                in_features=(language_feature_dim + vision_feature_dim),
+                out_features=2,
+            ),
+            torch.nn.Softmax(dim=1),
         )
 
     def _combine_modules(self, language_module, vision_module) -> Callable:
@@ -88,12 +96,12 @@ class LanguageAndVisionWeightedImportance(torch.nn.Module):
 
         return dual_module
 
-    def forward(self, txt, img):  # TODO: test this None default
+    def forward(self, txt, img):
         dual_output = self.dual_module(txt, img)
         txt_features = dual_output["txt"]
         img_features = dual_output["img"]
         combined = torch.cat([txt_features, img_features], dim=1)
-        weights = torch.nn.functional.softmax(self.fusion(combined), dim=1)
+        weights = self.fusion(combined)
         return {
             "txt": txt_features * weights[:, 0].unsqueeze(-1),
             "img": img_features * weights[:, 1].unsqueeze(-1),
