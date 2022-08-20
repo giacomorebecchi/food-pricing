@@ -1,5 +1,5 @@
 import random
-from typing import Callable, Dict, List
+from typing import TYPE_CHECKING, Callable, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,11 @@ from ..data.storage import CONFIG_PATH
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
+
+if TYPE_CHECKING:
+    from .dual_encoding.pretrained_clip import PreTrainedCLIP
+    from .nlp.pretrained_bert import PreTrainedBERT
+    from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class FoodPricingBaseModel(LightningModule):
@@ -156,6 +161,19 @@ class FoodPricingBaseModel(LightningModule):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+
+    def _is_unfreeze_time(self, module_name: str) -> bool:
+        param_name = "n_epochs_unfreeze_" + module_name
+        if param_name in self.hparams:
+            if self.current_epoch + 1 >= self.hparams[param_name]:
+                return True
+        return False
+
+    def _unfreeze_module(
+        self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
+    ) -> None:
+        module.unfreeze_encoder()
+        # TODO: Add module.parameters to optimizer
 
     def _build_dual_transform(self) -> Callable:
         return lambda _: _
