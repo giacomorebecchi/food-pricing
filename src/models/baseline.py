@@ -75,6 +75,10 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
     def __init__(self, *args, **kwargs):
         super(FPCBOWResNet152ConcatBaselineModel, self).__init__(*args, **kwargs)
 
+    def on_epoch_end(self) -> None:
+        if self._is_unfreeze_time("vision_module"):
+            self._unfreeze_module(self.vision_module)
+
     def _build_txt_transform(self):
         if path := self.hparams.fasttext_model_path:
             language_transform = fasttext.load_model(path)
@@ -108,17 +112,19 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
         return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
 
     def _build_model(self):
-        language_module = torch.nn.Linear(
+        self.language_module = torch.nn.Linear(
             in_features=self.hparams.embedding_dim,
             out_features=self.hparams.language_feature_dim,
         )
 
-        vision_module = PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim)
+        self.vision_module = PreTrainedResNet152(
+            feature_dim=self.hparams.vision_feature_dim
+        )
 
         return LanguageAndVisionConcat(
             loss_fn=torch.nn.MSELoss(),
-            language_module=language_module,
-            vision_module=vision_module,
+            language_module=self.language_module,
+            vision_module=self.vision_module,
             language_feature_dim=self.hparams.language_feature_dim,
             vision_feature_dim=self.hparams.vision_feature_dim,
             fusion_output_size=self.hparams.fusion_output_size,
@@ -131,5 +137,6 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
             "fusion_output_size": 512,
             "fasttext_model": "cbow",
             "fasttext_model_path": None,
+            "n_epochs_unfreeze_vision_module": 10,
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
