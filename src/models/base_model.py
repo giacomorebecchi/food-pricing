@@ -135,7 +135,11 @@ class FoodPricingBaseModel(LightningModule):
         self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
     def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.RAdam(
+            self.model.parameters(),
+            lr=self.hparams.optimizer_lr,
+            weight_decay=self.hparams.optimizer_weight_decay,
+        )
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             factor=self.hparams.lr_scheduler_factor,
@@ -299,7 +303,8 @@ class FoodPricingBaseModel(LightningModule):
             "early_stop_patience": 10,
             "backup_n_epochs": 10,
             # Optimizer params
-            "lr": 0.001,
+            "optimizer_lr": 1e-04,
+            "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
         }
