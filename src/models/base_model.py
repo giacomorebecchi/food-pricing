@@ -28,6 +28,8 @@ class FoodPricingBaseModel(LightningModule):
             super().__init__()
             self.hparams.update(model_instance.hparams)
             self.model = model_instance
+            self.generator = torch.Generator()
+            self.generator.manual_seed(self.model.hparams.random_state)
 
         def _build_dataset(self, split: str) -> Dataset:
             if self.hparams.lazy_dataset:
@@ -50,6 +52,8 @@ class FoodPricingBaseModel(LightningModule):
                 shuffle=self.hparams.shuffle_train_dataset,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
 
         def val_dataloader(self) -> DataLoader:
@@ -59,6 +63,8 @@ class FoodPricingBaseModel(LightningModule):
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
 
         def test_dataloader(self) -> DataLoader:
@@ -68,7 +74,14 @@ class FoodPricingBaseModel(LightningModule):
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
+
+        def _seed_worker(self, worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
 
     def __init__(self, *args, **kwargs) -> None:
         super(FoodPricingBaseModel, self).__init__()
@@ -167,6 +180,7 @@ class FoodPricingBaseModel(LightningModule):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
+        torch.use_deterministic_algorithms(True)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
