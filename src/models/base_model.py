@@ -12,6 +12,10 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .feature_combinators import (
+    LanguageAndVisionConcat,
+    LanguageAndVisionWeightedImportance,
+)
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
@@ -214,14 +218,25 @@ class FoodPricingBaseModel(LightningModule):
     ) -> None:
         module.unfreeze_encoder()
 
-    def _build_dual_module(self) -> Callable:
+    def _build_dual_module(self) -> torch.nn.Module:
         return lambda _: _
 
-    def _build_txt_module(self) -> Callable:
-        return lambda _: _
+    def _build_txt_module(self) -> torch.nn.Module:
+        module = torch.nn.Sequential(
+            torch.nn.Linear(
+                in_features=self.hparams.embedding_dim,
+                out_features=self.hparams.language_feature_dim,
+            ),
+            torch.nn.ReLU(),
+        )
+        return module
 
-    def _build_img_module(self) -> Callable:
-        return lambda _: _
+    def _build_img_module(self) -> torch.nn.Module:
+        module = torch.nn.Sequential(
+            PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim),
+            torch.nn.ReLU(),
+        )
+        return module
 
     def _build_txt_transform(self) -> Callable:
         return lambda _: _
@@ -238,10 +253,20 @@ class FoodPricingBaseModel(LightningModule):
         return img_transform
 
     def _build_attention_module(self) -> torch.nn.Module:
-        pass
+        module = LanguageAndVisionWeightedImportance(
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+        )
+        return module
 
     def _build_fusion_module(self) -> torch.nn.Module:
-        pass
+        module = LanguageAndVisionConcat(
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+            fusion_output_size=self.hparams.fusion_output_size,
+            dropout_p=self.hparams.dropout_p,
+        )
+        return module
 
     def _get_path(
         self, path: List[str] = [], file_name: str = "", file_format: str = ""
