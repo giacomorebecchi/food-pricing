@@ -72,10 +72,6 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
     def __init__(self, *args, **kwargs):
         super(FPCBOWResNet152ConcatBaselineModel, self).__init__(*args, **kwargs)
 
-    def on_epoch_end(self) -> None:
-        if self._is_unfreeze_time("vision_module"):
-            self._unfreeze_module(self.vision_module)
-
     def _build_txt_transform(self):
         if path := self.hparams.fasttext_model_path:
             language_transform = fasttext.load_model(path)

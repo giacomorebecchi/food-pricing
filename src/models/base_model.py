@@ -122,6 +122,16 @@ class FoodPricingBaseModel(LightningModule):
         # defining the loss function
         self.loss_fn = torch.nn.MSELoss()
 
+    def on_train_epoch_start(self) -> None:
+        if self._is_unfreeze_time("language_module"):
+            self._unfreeze_module(self.language_module)
+
+        if self._is_unfreeze_time("vision_module"):
+            self._unfreeze_module(self.vision_module)
+
+        if self._is_unfreeze_time("dual_module"):
+            self._unfreeze_module(self.dual_module)
+
     def forward(self, txt, img, label=None):
         if self.hparams.dual_module:
             txt, img = self.dual_module(txt, img)
@@ -208,10 +218,9 @@ class FoodPricingBaseModel(LightningModule):
 
     def _is_unfreeze_time(self, module_name: str) -> bool:
         param_name = "n_epochs_unfreeze_" + module_name
-        if param_name in self.hparams:
-            if self.current_epoch + 1 >= self.hparams[param_name]:
-                return True
-        return False
+        return (param_name in self.hparams) and (
+            self.current_epoch >= self.hparams[param_name]
+        )
 
     def _unfreeze_module(
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
