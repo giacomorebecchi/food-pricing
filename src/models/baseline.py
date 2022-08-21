@@ -8,7 +8,7 @@ import fasttext
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 
 from ..data.config import TXT_TRAIN
 from .base_model import FoodPricingBaseModel

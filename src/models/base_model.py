@@ -9,7 +9,7 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 
 from ..data.storage import CONFIG_PATH
 from .feature_combinators import (
