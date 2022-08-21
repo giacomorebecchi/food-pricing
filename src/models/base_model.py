@@ -1,5 +1,5 @@
 import random
-from typing import Callable, Dict, List
+from typing import TYPE_CHECKING, Callable, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -9,12 +9,21 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .feature_combinators import (
+    LanguageAndVisionConcat,
+    LanguageAndVisionWeightedImportance,
+)
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .vision.pretrained_resnet import PreTrainedResNet152
+
+if TYPE_CHECKING:
+    from .dual_encoding.pretrained_clip import PreTrainedCLIP
+    from .nlp.pretrained_bert import PreTrainedBERT
 
 
 class FoodPricingBaseModel(LightningModule):
@@ -23,6 +32,13 @@ class FoodPricingBaseModel(LightningModule):
             super().__init__()
             self.hparams.update(model_instance.hparams)
             self.model = model_instance
+            self.generator = torch.Generator()
+            self.generator.manual_seed(self.model.hparams.random_seed)
+
+            # initialize datasets
+            self.train_dataset = self._build_dataset("train")
+            self.dev_dataset = self._build_dataset("dev")
+            self.test_dataset = self._build_dataset("test")
 
         def _build_dataset(self, split: str) -> Dataset:
             if self.hparams.lazy_dataset:
@@ -39,31 +55,39 @@ class FoodPricingBaseModel(LightningModule):
                 )
 
         def train_dataloader(self) -> DataLoader:
-            self._train_dataset = self._build_dataset("train")
             return DataLoader(
-                dataset=self._train_dataset,
+                dataset=self.train_dataset,
                 shuffle=self.hparams.shuffle_train_dataset,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
 
         def val_dataloader(self) -> DataLoader:
-            self._dev_dataset = self._build_dataset("dev")
             return DataLoader(
-                dataset=self._dev_dataset,
+                dataset=self.dev_dataset,
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
 
         def test_dataloader(self) -> DataLoader:
-            self._test_dataset = self._build_dataset("test")
             return DataLoader(
-                dataset=self._test_dataset,
+                dataset=self.test_dataset,
                 shuffle=False,
                 batch_size=self.hparams.batch_size,
                 num_workers=self.hparams.loader_workers,
+                worker_init_fn=self._seed_worker,
+                generator=self.generator,
             )
+
+        def _seed_worker(self, worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
 
     def __init__(self, *args, **kwargs) -> None:
         super(FoodPricingBaseModel, self).__init__()
@@ -72,11 +96,15 @@ class FoodPricingBaseModel(LightningModule):
         self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
-        self._set_seed(self.hparams.random_state)
+        self._set_seed(self.hparams.random_seed)
 
-        # build dual model, which has the precedence over other transformers
-        if self.hparams.dual_model:
-            self.dual_transform = self._build_dual_transform()
+        # build dual module, which has the precedence over other transformers
+        if self.hparams.dual_module:
+            self.dual_module = self._build_dual_module()
+        # else, build the language and vision modules separately
+        else:
+            self.language_module = self._build_txt_module()
+            self.vision_module = self._build_img_module()
 
         # build transform models
         self.txt_transform = self._build_txt_transform()
@@ -86,16 +114,38 @@ class FoodPricingBaseModel(LightningModule):
         self.data = self.DataModule(self)
 
         # set up model and training
-        self.model = self._build_model()
+        if self.hparams.attention_module:
+            self.attention_module = self._build_attention_module()
+        self.fusion_module = self._build_fusion_module()
         self.trainer_params = self._get_trainer_params()
 
+        # defining the loss function
+        self.loss_fn = torch.nn.MSELoss()
+
+    def on_train_epoch_start(self) -> None:
+        if self._is_unfreeze_time("language_module"):
+            self._unfreeze_module(self.language_module)
+
+        if self._is_unfreeze_time("vision_module"):
+            self._unfreeze_module(self.vision_module)
+
+        if self._is_unfreeze_time("dual_module"):
+            self._unfreeze_module(self.dual_module)
+
     def forward(self, txt, img, label=None):
-        return self.model(txt, img, label)
+        if self.hparams.dual_module:
+            txt, img = self.dual_module(txt, img)
+        else:
+            txt = self.language_module(txt)
+            img = self.vision_module(img)
+        if self.hparams.attention_module:
+            txt, img = self.attention_module(txt, img)
+        pred = self.fusion_module(txt, img)
+        loss = self.loss_fn(pred, label) if label is not None else None
+        return pred, loss
 
     def training_step(self, batch: Dict, batch_nb) -> torch.Tensor:
-        preds, loss = self.forward(
-            txt=batch["txt"], img=batch["img"], label=batch["label"]
-        )
+        _, loss = self.forward(txt=batch["txt"], img=batch["img"], label=batch["label"])
         self.log(
             "train_loss",
             loss,
@@ -109,7 +159,7 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_nb) -> torch.Tensor:
-        preds, loss = self.eval().forward(
+        _, loss = self.eval().forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
         )
         self.log(
@@ -130,8 +180,16 @@ class FoodPricingBaseModel(LightningModule):
         self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
     def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        optimizer = torch.optim.RAdam(
+            self.parameters(),
+            lr=self.hparams.optimizer_lr,
+            weight_decay=self.hparams.optimizer_weight_decay,
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            factor=self.hparams.lr_scheduler_factor,
+            patience=self.hparams.lr_scheduler_patience,
+        )
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -141,7 +199,7 @@ class FoodPricingBaseModel(LightningModule):
         }
 
     def fit(self) -> None:
-        self._set_seed(self.hparams.random_state)
+        self._set_seed(self.hparams.random_seed)
         self.trainer = Trainer(**self.trainer_params)
         self.trainer.fit(self, datamodule=self.data)
 
@@ -150,15 +208,44 @@ class FoodPricingBaseModel(LightningModule):
         best_checkpoint_path = get_best_checkpoint_path(model_class=cls, **kwargs)
         return cls.load_from_checkpoint(checkpoint_path=best_checkpoint_path)
 
-    def _set_seed(self, seed) -> None:
+    def _set_seed(self, seed: int) -> None:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
+        torch.use_deterministic_algorithms(True)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def _build_dual_transform(self) -> Callable:
-        return lambda _: _
+    def _is_unfreeze_time(self, module_name: str) -> bool:
+        param_name = "n_epochs_unfreeze_" + module_name
+        return (param_name in self.hparams) and (
+            self.current_epoch >= self.hparams[param_name]
+        )
+
+    def _unfreeze_module(
+        self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
+    ) -> None:
+        module.unfreeze_encoder()
+
+    def _build_dual_module(self) -> torch.nn.Module:
+        return lambda txt, img: (txt, img)
+
+    def _build_txt_module(self) -> torch.nn.Module:
+        module = torch.nn.Sequential(
+            torch.nn.Linear(
+                in_features=self.hparams.embedding_dim,
+                out_features=self.hparams.language_feature_dim,
+            ),
+            torch.nn.ReLU(),
+        )
+        return module
+
+    def _build_img_module(self) -> torch.nn.Module:
+        module = torch.nn.Sequential(
+            PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim),
+            torch.nn.ReLU(),
+        )
+        return module
 
     def _build_txt_transform(self) -> Callable:
         return lambda _: _
@@ -174,8 +261,21 @@ class FoodPricingBaseModel(LightningModule):
         )
         return img_transform
 
-    def _build_model(self) -> torch.nn.Module:
-        pass
+    def _build_attention_module(self) -> torch.nn.Module:
+        module = LanguageAndVisionWeightedImportance(
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+        )
+        return module
+
+    def _build_fusion_module(self) -> torch.nn.Module:
+        module = LanguageAndVisionConcat(
+            language_feature_dim=self.hparams.language_feature_dim,
+            vision_feature_dim=self.hparams.vision_feature_dim,
+            fusion_output_size=self.hparams.fusion_output_size,
+            dropout_p=self.hparams.dropout_p,
+        )
+        return module
 
     def _get_path(
         self, path: List[str] = [], file_name: str = "", file_format: str = ""
@@ -234,14 +334,14 @@ class FoodPricingBaseModel(LightningModule):
             index=test_dataloader.dataset.index, columns=["true", "pred"]
         )
         for batch in tqdm(test_dataloader, total=len(test_dataloader)):
-            preds, _ = self.model.eval().to("cpu")(batch["txt"], batch["img"])
+            preds, _ = self.eval().to("cpu")(batch["txt"], batch["img"])
             submission_frame.loc[batch["id"], "true"] = batch["label"].squeeze(-1)
             submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
         return submission_frame
 
     def _add_default_hparams(self) -> None:
         default_params = {
-            "random_state": 42,
+            "random_seed": 42,
             "lazy_dataset": False,
             "shuffle_train_dataset": True,
             "batch_size": 32,
@@ -259,15 +359,17 @@ class FoodPricingBaseModel(LightningModule):
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
             "fusion_output_size": 512,
             "dropout_p": 0.1,
-            # Dual model
-            "dual_model": False,
+            # Dual module
+            "dual_module": False,
+            # Attention module
+            "attention_module": False,
             # Trainer params
             "verbose": True,
             "accumulate_grad_batches": 1,
             "accelerator": "auto",
             "devices": 1,
             "max_epochs": 100,
-            "gradient_clip_value": None,
+            "gradient_clip_value": 5,
             "num_sanity_val_steps": 2,
             # Callback params
             "checkpoint_monitor": "avg_val_loss",
@@ -277,7 +379,10 @@ class FoodPricingBaseModel(LightningModule):
             "early_stop_patience": 10,
             "backup_n_epochs": 10,
             # Optimizer params
-            "lr": 0.001,
+            "optimizer_lr": 1e-04,
+            "optimizer_weight_decay": 1e-3,
+            "lr_scheduler_factor": 0.2,
+            "lr_scheduler_patience": 5,
         }
         self.hparams.update({**default_params, **self.hparams})
 

@@ -1,6 +1,6 @@
-import itertools
 import json
 import os
+from itertools import product
 from pathlib import PurePosixPath
 from typing import Any, Callable, Dict, List
 
@@ -9,9 +9,8 @@ import pandas as pd
 import torch
 from pytorch_lightning.utilities.parsing import AttributeDict
 from torch.utils.data import DataLoader
-from torchvision.models import resnet152
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from xgboost import Booster, DMatrix
 from xgboost import train as xgb_train
 
@@ -20,11 +19,14 @@ from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.callbacks import XGBTelegramBotCallback
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class XGBBaseModel:
     def __init__(self, **kwargs):
         self.save_hyperparameters(kwargs)
+
+        self.telegram_callback = XGBTelegramBotCallback()
 
         # build dual model, which has the precedence over other transformers
         if self.hparams.dual_model:
@@ -38,7 +40,6 @@ class XGBBaseModel:
         self.d_train = self._build_dataset("train")
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
-        self.telegram_callback = XGBTelegramBotCallback()
 
     def save_hyperparameters(self, kwargs: Dict[str, Any]) -> None:
         self.hparams = AttributeDict(kwargs)
@@ -82,7 +83,7 @@ class XGBBaseModel:
         self.telegram_callback.on_fit_end(self)
 
     def store_model(self) -> None:
-        fname = self.hparams.objective + str(round(self.best_score, 3))
+        fname = self.hparams.objective + "=" + str(round(self.best_score, 3))
         model_path = get_local_models_path(
             path=[], model=self, file_name="model_" + fname, file_format=".json"
         )
@@ -198,13 +199,14 @@ class XGBBaseModel:
         return lambda _: _
 
     def _build_dual_transform(self):
-        return None
+        return lambda txt, img: (txt, img)
 
     def _build_dataset(self, split: str) -> DMatrix:
         data_path = self._get_data_path(split)
         if self.hparams.load_data and os.path.exists(data_path):
             ar = DMatrix(data_path)
         else:
+            self.telegram_callback.on_dataset_preparation(self, split)
             dataset = FoodPricingDataset(
                 img_transform=self.img_transform,
                 txt_transform=self.txt_transform,
@@ -226,7 +228,7 @@ class XGBBaseModel:
         params = {key: self.hparams[key] for key in self.xgb_keys}
         keys, values = zip(*params.items())
         values = [[v] if not isinstance(v, (list, tuple)) else v for v in values]
-        permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
+        permutations_dicts = [dict(zip(keys, v)) for v in product(*values)]
         n = len(permutations_dicts)
         print(f"Found {n} different params combinations")
         if n > (n_max := self.hparams.max_iter):
@@ -283,7 +285,6 @@ class XGBBERTResNet152(XGBBaseModel):
         return language_transform
 
     def _build_img_transform(self):
-        module = resnet152(weights="DEFAULT")
         img_dim = self.hparams.img_dim
         transformer = Compose(
             [
@@ -292,8 +293,7 @@ class XGBBERTResNet152(XGBBaseModel):
                 Normalize(mean=self.hparams.img_mean, std=self.hparams.img_std),
             ]
         )
-        for param in module.parameters():
-            param.requires_grad = False
+        module = PreTrainedResNet152()
         return lambda img: module(torch.unsqueeze(transformer(img), 0))
 
     def _add_model_specific_hparams(self) -> None:
@@ -322,9 +322,6 @@ class XGBCLIP(XGBBaseModel):
         return transformer
 
     def _build_dual_transform(self):
-        def extract_result(result):
-            return result["txt"], result["img"]
-
         model_kwargs = {"pretrained_model_name_or_path": self.hparams.clip_model}
         processor_kwargs = {
             "pretrained_model_name_or_path": self.hparams.processor_clip_model
@@ -335,7 +332,7 @@ class XGBCLIP(XGBBaseModel):
             return_tensors=None,
         )
         self._update_clip_hparams(clip)
-        return lambda txt, img: extract_result(clip(txt, img))
+        return clip
 
     def _update_clip_hparams(self, clip: PreTrainedCLIP) -> None:
         processor_config = clip.processor.feature_extractor

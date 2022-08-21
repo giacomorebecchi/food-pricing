@@ -7,14 +7,11 @@ from typing import List
 import fasttext
 import numpy as np
 import pandas as pd
-import torch
-import torchvision
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 
 from ..data.config import TXT_TRAIN
 from .base_model import FoodPricingBaseModel
-from .feature_combinators import LanguageAndVisionConcat
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_local_models_path
 
@@ -107,41 +104,12 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
         t = datetime.now(timezone.utc).isoformat()
         return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
 
-    def _build_model(self):
-        # we're going to pass the outputs of our text
-        # transform through an additional trainable layer
-        # rather than fine-tuning the transform
-        language_module = torch.nn.Linear(
-            in_features=self.hparams.embedding_dim,
-            out_features=self.hparams.language_feature_dim,
-        )
-
-        # easiest way to get features rather than
-        # classification is to overwrite last layer
-        # with an identity transformation, we'll reduce
-        # dimension using a Linear layer, resnet is 2048 out
-        vision_module = torchvision.models.resnet152(weights="DEFAULT")
-        for param in vision_module.parameters():
-            param.requires_grad = False
-        vision_module.fc = torch.nn.Linear(
-            in_features=2048, out_features=self.hparams.vision_feature_dim
-        )
-
-        return LanguageAndVisionConcat(
-            loss_fn=torch.nn.MSELoss(),
-            language_module=language_module,
-            vision_module=vision_module,
-            language_feature_dim=self.hparams.language_feature_dim,
-            vision_feature_dim=self.hparams.vision_feature_dim,
-            fusion_output_size=self.hparams.fusion_output_size,
-            dropout_p=self.hparams.dropout_p,
-        )
-
     def _add_model_specific_hparams(self) -> None:
         model_specific_hparams = {
             "dropout_p": 0.2,
             "fusion_output_size": 512,
             "fasttext_model": "cbow",
             "fasttext_model_path": None,
+            "n_epochs_unfreeze_vision_module": 10,
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
