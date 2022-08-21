@@ -4,8 +4,6 @@ from typing import Optional
 from torch import Tensor, nn
 from torchvision.models import resnet152
 
-logging.basicConfig(level=logging.INFO)
-
 
 class PreTrainedResNet152(nn.Module):
     def __init__(

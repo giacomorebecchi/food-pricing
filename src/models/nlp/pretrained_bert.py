@@ -4,8 +4,6 @@ from typing import Dict, List, Optional
 from torch import Tensor, nn
 from transformers import AutoModel, AutoTokenizer
 
-logging.basicConfig(level=logging.INFO)
-
 
 class PreTrainedBERT(nn.Module):
     def __init__(
