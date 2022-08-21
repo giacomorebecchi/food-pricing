@@ -1,13 +1,13 @@
 import logging
 from typing import Dict, List, Optional
 
-import torch
+from torch import Tensor, nn
 from transformers import AutoModel, AutoTokenizer
 
 logging.basicConfig(level=logging.INFO)
 
 
-class PreTrainedBERT(torch.nn.Module):
+class PreTrainedBERT(nn.Module):
     def __init__(
         self,
         model_kwargs: Dict,
@@ -25,8 +25,9 @@ class PreTrainedBERT(torch.nn.Module):
         self.add_fc = False
         if feature_dim and feature_dim != self.encoder_features:
             self.add_fc = True
-            self.fc = torch.nn.Linear(
-                in_features=self.encoder_features, out_features=feature_dim
+            self.fc = nn.Sequential(
+                nn.Linear(in_features=self.encoder_features, out_features=feature_dim),
+                nn.ReLU(),
             )
             logging.info(
                 "Adding a Fully Connected Layer to pass from "
@@ -55,10 +56,10 @@ class PreTrainedBERT(torch.nn.Module):
                 param.requires_grad = True
             self.frozen = False
 
-    def prepare_sample(self, text_sample: List[str]) -> Dict:
-        return self.tokenizer(text_sample, padding=True, return_tensors="pt")
+    def prepare_sample(self, txt: List[str]) -> Dict:
+        return self.tokenizer(txt, padding=True, return_tensors="pt")
 
-    def forward(self, txt: List[str]) -> torch.Tensor:
+    def forward(self, txt: List[str]) -> Tensor:
         encoded_batch = self.prepare_sample(txt)
         token_emb = self.bert(
             encoded_batch["input_ids"], encoded_batch["attention_mask"]
