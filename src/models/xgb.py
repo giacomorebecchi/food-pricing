@@ -83,7 +83,7 @@ class XGBBaseModel:
         self.telegram_callback.on_fit_end(self)
 
     def store_model(self) -> None:
-        fname = self.hparams.objective + str(round(self.best_score, 3))
+        fname = self.hparams.objective + "=" + str(round(self.best_score, 3))
         model_path = get_local_models_path(
             path=[], model=self, file_name="model_" + fname, file_format=".json"
         )
