@@ -219,7 +219,7 @@ class FoodPricingBaseModel(LightningModule):
         module.unfreeze_encoder()
 
     def _build_dual_module(self) -> torch.nn.Module:
-        return lambda _: _
+        return lambda txt, img: (txt, img)
 
     def _build_txt_module(self) -> torch.nn.Module:
         module = torch.nn.Sequential(
