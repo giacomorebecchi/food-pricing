@@ -213,7 +213,6 @@ class FoodPricingBaseModel(LightningModule):
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
     ) -> None:
         module.unfreeze_encoder()
-        # TODO: Add module.parameters to optimizer
 
     def _build_dual_module(self) -> Callable:
         return lambda _: _
