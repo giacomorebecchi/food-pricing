@@ -2,12 +2,11 @@ from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Callable, Dict, Generator, Optional
 
-import torch
 import yaml
 from PIL import Image, ImageFile
 from src.data.config import DATASET, IMAGES
 from src.data.storage import CONFIG_PATH, dd_read_parquet, get_S3_fs, pd_read_parquet
-from torch import is_tensor
+from torch import Tensor, is_tensor
 from torch.utils.data import Dataset
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -56,7 +55,7 @@ class FoodPricingDataset(Dataset):
     def __getitem__(
         self,
         idx,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Tensor]:
         if is_tensor(idx):
             idx = idx.tolist()
         idx = self.index[idx]
@@ -78,8 +77,8 @@ class FoodPricingDataset(Dataset):
             "id": idx,
             "img": img,
             "txt": txt,
-            "coords": torch.Tensor([lat, lon]),
-            "label": torch.Tensor([label]),
+            "coords": Tensor([lat, lon]),
+            "label": Tensor([label]),
         }
 
     def get_local_img(
@@ -156,7 +155,7 @@ class FoodPricingLazyDataset(Dataset):
     def __getitem__(
         self,
         idx,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Tensor]:
         if is_tensor(idx):
             idx = idx.tolist()
         idx = self.index[idx]
@@ -174,8 +173,8 @@ class FoodPricingLazyDataset(Dataset):
         return {
             "img": self.img_transform(img),
             "txt": self.txt_transform(txt),
-            "coords": torch.Tensor([lat, lon]),
-            "label": torch.Tensor([label]),
+            "coords": Tensor([lat, lon]),
+            "label": Tensor([label]),
         }
 
     def get_local_img(
