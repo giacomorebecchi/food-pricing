@@ -19,11 +19,11 @@ from .feature_combinators import (
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .vision.pretrained_resnet import PreTrainedResNet152
 
 if TYPE_CHECKING:
     from .dual_encoding.pretrained_clip import PreTrainedCLIP
     from .nlp.pretrained_bert import PreTrainedBERT
-    from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class FoodPricingBaseModel(LightningModule):
