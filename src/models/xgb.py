@@ -1,6 +1,6 @@
-import itertools
 import json
 import os
+from itertools import product
 from pathlib import PurePosixPath
 from typing import Any, Callable, Dict, List
 
@@ -10,7 +10,7 @@ import torch
 from pytorch_lightning.utilities.parsing import AttributeDict
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from xgboost import Booster, DMatrix
 from xgboost import train as xgb_train
 
@@ -199,7 +199,7 @@ class XGBBaseModel:
         return lambda _: _
 
     def _build_dual_transform(self):
-        return None
+        return lambda txt, img: (txt, img)
 
     def _build_dataset(self, split: str) -> DMatrix:
         data_path = self._get_data_path(split)
@@ -228,7 +228,7 @@ class XGBBaseModel:
         params = {key: self.hparams[key] for key in self.xgb_keys}
         keys, values = zip(*params.items())
         values = [[v] if not isinstance(v, (list, tuple)) else v for v in values]
-        permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
+        permutations_dicts = [dict(zip(keys, v)) for v in product(*values)]
         n = len(permutations_dicts)
         print(f"Found {n} different params combinations")
         if n > (n_max := self.hparams.max_iter):
@@ -322,9 +322,6 @@ class XGBCLIP(XGBBaseModel):
         return transformer
 
     def _build_dual_transform(self):
-        def extract_result(result):
-            return result["txt"], result["img"]
-
         model_kwargs = {"pretrained_model_name_or_path": self.hparams.clip_model}
         processor_kwargs = {
             "pretrained_model_name_or_path": self.hparams.processor_clip_model
@@ -335,7 +332,7 @@ class XGBCLIP(XGBBaseModel):
             return_tensors=None,
         )
         self._update_clip_hparams(clip)
-        return lambda txt, img: extract_result(clip(txt, img))
+        return clip
 
     def _update_clip_hparams(self, clip: PreTrainedCLIP) -> None:
         processor_config = clip.processor.feature_extractor
