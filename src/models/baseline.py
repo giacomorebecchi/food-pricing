@@ -7,16 +7,13 @@ from typing import List
 import fasttext
 import numpy as np
 import pandas as pd
-import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..data.config import TXT_TRAIN
 from .base_model import FoodPricingBaseModel
-from .feature_combinators import LanguageAndVisionConcat
 from .utils.data import FoodPricingDataset
 from .utils.storage import get_local_models_path
-from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class FPMeanBaselineModel:
@@ -110,26 +107,6 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
     def _get_fasttext_path(self):
         t = datetime.now(timezone.utc).isoformat()
         return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
-
-    def _build_model(self):
-        self.language_module = torch.nn.Linear(
-            in_features=self.hparams.embedding_dim,
-            out_features=self.hparams.language_feature_dim,
-        )
-
-        self.vision_module = PreTrainedResNet152(
-            feature_dim=self.hparams.vision_feature_dim
-        )
-
-        return LanguageAndVisionConcat(
-            loss_fn=torch.nn.MSELoss(),
-            language_module=self.language_module,
-            vision_module=self.vision_module,
-            language_feature_dim=self.hparams.language_feature_dim,
-            vision_feature_dim=self.hparams.vision_feature_dim,
-            fusion_output_size=self.hparams.fusion_output_size,
-            dropout_p=self.hparams.dropout_p,
-        )
 
     def _add_model_specific_hparams(self) -> None:
         model_specific_hparams = {
