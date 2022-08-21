@@ -29,7 +29,7 @@ class FoodPricingBaseModel(LightningModule):
             self.hparams.update(model_instance.hparams)
             self.model = model_instance
             self.generator = torch.Generator()
-            self.generator.manual_seed(self.model.hparams.random_state)
+            self.generator.manual_seed(self.model.hparams.random_seed)
 
             # initialize datasets
             self.train_dataset = self._build_dataset("train")
@@ -92,7 +92,7 @@ class FoodPricingBaseModel(LightningModule):
         self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
 
-        self._set_seed(self.hparams.random_state)
+        self._set_seed(self.hparams.random_seed)
 
         # build dual module, which has the precedence over other transformers
         if self.hparams.dual_module:
@@ -185,7 +185,7 @@ class FoodPricingBaseModel(LightningModule):
         }
 
     def fit(self) -> None:
-        self._set_seed(self.hparams.random_state)
+        self._set_seed(self.hparams.random_seed)
         self.trainer = Trainer(**self.trainer_params)
         self.trainer.fit(self, datamodule=self.data)
 
@@ -308,7 +308,7 @@ class FoodPricingBaseModel(LightningModule):
 
     def _add_default_hparams(self) -> None:
         default_params = {
-            "random_state": 42,
+            "random_seed": 42,
             "lazy_dataset": False,
             "shuffle_train_dataset": True,
             "batch_size": 32,
