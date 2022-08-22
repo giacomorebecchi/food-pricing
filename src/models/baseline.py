@@ -13,13 +13,13 @@ from tqdm.autonotebook import tqdm
 from ..data.config import TXT_TRAIN
 from .base_model import FoodPricingBaseModel
 from .utils.data import FoodPricingDataset
-from .utils.storage import get_local_models_path
+from .utils.storage import get_local_models_path, store_submission_frame
 
 
 class FPMeanBaselineModel:
     def __init__(self, **hparams) -> None:
         self.hparams = hparams
-        self.output_path = self._get_path()
+        self.model_name = self.__class__.__name__
 
     def fit(self) -> None:
         train_dataloader = self._get_dataloader("train")
@@ -44,6 +44,8 @@ class FPMeanBaselineModel:
             submission_frame.loc[batch["id"], "pred"] = self.pred
         test_mse = ((submission_frame["true"] - submission_frame["pred"]).pow(2)).mean()
         print(f"Test MSE: {test_mse:.3f}")
+        if self.hparams.get("store_submission_frame", True):
+            store_submission_frame(submission_frame, self.model_name)
         return submission_frame
 
     def _build_dataset(self, split: str) -> FoodPricingDataset:
