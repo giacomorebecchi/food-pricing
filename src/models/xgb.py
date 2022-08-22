@@ -18,13 +18,19 @@ from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.callbacks import XGBTelegramBotCallback
 from .utils.data import FoodPricingDataset
-from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .utils.storage import (
+    get_best_checkpoint_path,
+    get_local_models_path,
+    store_submission_frame,
+)
 from .vision.pretrained_resnet import PreTrainedResNet152
 
 
 class XGBBaseModel:
     def __init__(self, **kwargs):
         self.save_hyperparameters(kwargs)
+
+        self.model_name = self.__class__.__name__
 
         self.telegram_callback = XGBTelegramBotCallback()
 
@@ -149,6 +155,10 @@ class XGBBaseModel:
             },
             index=idxs,
         )
+
+        if self.hparams.get("store_submission_frame", True):
+            store_submission_frame(submission_frame, self.model_name)
+
         return submission_frame
 
     def _add_default_hparams(self) -> None:
@@ -175,6 +185,8 @@ class XGBBaseModel:
             # XGB train hyperparameters
             "num_round": 100,
             "early_stopping_rounds": 5,
+            # Test evaluation stored
+            "store_submission_frame": True,
         }
         xgb_default_params = {
             # XGBRegressor hyperparameters
