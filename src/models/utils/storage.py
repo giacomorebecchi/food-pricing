@@ -2,10 +2,13 @@ import glob
 import os
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
-from typing import List, Optional
+from typing import Dict, List, Optional, TypeVar, Union
 
 import pandas as pd
 import pytorch_lightning as pl
+import yaml
+
+from ...definitions import ROOT_DIR
 
 
 def get_local_models_path(
@@ -73,3 +76,30 @@ def store_submission_frame(
         os.makedirs(submissions_path, exist_ok=False)
     path = submissions_path.joinpath(model_name).with_suffix(".csv")
     submission_frame.to_csv(path)
+
+
+PARAM_TYPES = (
+    str,
+    int,
+    float,
+    bool,
+    type(None),
+)
+ParamValue = TypeVar("ParamValue", *PARAM_TYPES)
+
+
+def get_hparams() -> Dict[str, Union[ParamValue, List[ParamValue]]]:
+    hparams_fname = str(PurePosixPath(ROOT_DIR).joinpath("hparams.yml"))
+    hparams = yaml.safe_load(open(hparams_fname))
+    try:
+        assert isinstance(hparams, dict)
+        for k, val in hparams.items():
+            assert isinstance(k, str)
+            if isinstance(val, list):
+                for v in val:
+                    assert isinstance(v, PARAM_TYPES)
+            else:
+                assert isinstance(val, PARAM_TYPES)
+    except AssertionError:
+        print(f"Invalid {hparams} of type {type(hparams)}")
+    return hparams
