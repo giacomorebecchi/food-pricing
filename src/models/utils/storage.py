@@ -86,20 +86,22 @@ PARAM_TYPES = (
     type(None),
 )
 ParamValue = TypeVar("ParamValue", *PARAM_TYPES)
+ParamConfig = Dict[str, Dict[str, Union[ParamValue, List[ParamValue]]]]
 
 
-def get_hparams() -> Dict[str, Union[ParamValue, List[ParamValue]]]:
-    hparams_fname = str(PurePosixPath(ROOT_DIR).joinpath("hparams.yml"))
-    hparams = yaml.safe_load(open(hparams_fname))
-    try:
-        assert isinstance(hparams, dict)
-        for k, val in hparams.items():
-            assert isinstance(k, str)
-            if isinstance(val, list):
-                for v in val:
-                    assert isinstance(v, PARAM_TYPES)
-            else:
-                assert isinstance(val, PARAM_TYPES)
-    except AssertionError:
-        print(f"Invalid {hparams} of type {type(hparams)}")
-    return hparams
+def get_hparams_config() -> ParamConfig:
+    config_fname = str(PurePosixPath(ROOT_DIR).joinpath("hparams_config.yml"))
+    hparams_config: ParamConfig = yaml.safe_load(open(config_fname))
+    for hparams in hparams_config.values():
+        try:
+            assert isinstance(hparams, dict)
+            for k, val in hparams.items():
+                assert isinstance(k, str)
+                if isinstance(val, list):
+                    for v in val:
+                        assert isinstance(v, PARAM_TYPES)
+                else:
+                    assert isinstance(val, PARAM_TYPES)
+        except AssertionError:
+            print(f"Invalid {hparams} of type {type(hparams)}")
+    return hparams_config
