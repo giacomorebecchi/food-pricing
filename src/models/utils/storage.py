@@ -1,8 +1,10 @@
 import glob
 import os
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
-from typing import List
+from typing import List, Optional
 
+import pandas as pd
 import pytorch_lightning as pl
 
 
@@ -48,3 +50,26 @@ def get_best_checkpoint_path(
     else:
         best_checkpoint_path = max(path_score, key=path_score.get)
     return best_checkpoint_path
+
+
+def get_run_id() -> str:
+    return datetime.utcnow().replace(tzinfo=timezone.utc, microsecond=0).isoformat()
+
+
+def store_submission_frame(
+    submission_frame: pd.DataFrame,
+    model_name: str,
+    run_id: Optional[str] = None,
+) -> None:
+    if run_id is None:
+        run_id = get_run_id()
+    current_path = PurePosixPath(__file__).parent
+    submissions_path = current_path.parent.parent.parent.joinpath(
+        "submissions",
+        run_id,
+    )
+    if not os.path.exists(submissions_path):
+        print(f"Path {submissions_path} did not exist. Created it.")
+        os.makedirs(submissions_path, exist_ok=False)
+    path = submissions_path.joinpath(model_name).with_suffix(".csv")
+    submission_frame.to_csv(path)
