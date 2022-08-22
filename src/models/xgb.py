@@ -156,9 +156,12 @@ class XGBBaseModel:
             index=idxs,
         )
 
-        if self.hparams.get("store_submission_frame", True):
-            store_submission_frame(submission_frame, self.model_name)
-
+        if self.hparams.store_submission_frame:
+            store_submission_frame(
+                submission_frame=submission_frame,
+                model_name=self.model_name,
+                run_id=self.hparams.trainer_run_id,
+            )
         return submission_frame
 
     def _add_default_hparams(self) -> None:
@@ -180,13 +183,13 @@ class XGBBaseModel:
             "img_std": [0.229, 0.224, 0.225],
             # Best hyperparameters settings
             "max_iter": 50,
-            "max_seconds": 60 * 60,
             # "growpolicy": ["depthwise", "lossguide"]
             # XGB train hyperparameters
             "num_round": 100,
             "early_stopping_rounds": 5,
             # Test evaluation stored
             "store_submission_frame": True,
+            "trainer_run_id": None,
         }
         xgb_default_params = {
             # XGBRegressor hyperparameters

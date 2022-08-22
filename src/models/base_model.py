@@ -344,8 +344,12 @@ class FoodPricingBaseModel(LightningModule):
             submission_frame.loc[batch["id"], "true"] = batch["label"].squeeze(-1)
             submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
 
-        if self.hparams.get("store_submission_frame", True):
-            store_submission_frame(submission_frame, self.model_name)
+        if self.hparams.store_submission_frame:
+            store_submission_frame(
+                submission_frame=submission_frame,
+                model_name=self.model_name,
+                run_id=self.hparams.trainer_run_id,
+            )
 
         return submission_frame
 
@@ -395,6 +399,7 @@ class FoodPricingBaseModel(LightningModule):
             "lr_scheduler_patience": 5,
             # Test evaluation stored
             "store_submission_frame": True,
+            "trainer_run_id": None,
         }
         self.hparams.update({**default_params, **self.hparams})
 
