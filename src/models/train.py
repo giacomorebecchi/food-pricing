@@ -67,11 +67,11 @@ def main(
 
         # Produce predictions (stored in ./submissions)
         _ = model.make_submission_frame()
-        logging.info("Finished submitting predictions for model {model_name}.")
+        logging.info(f"Finished submitting predictions for model {model_name}.")
 
         # Free memory
         del model
-        logging.info("Released memory occupied from model {model_name}.")
+        logging.info(f"Released memory occupied from model {model_name}.")
 
 
 if __name__ == "__main__":
