@@ -51,6 +51,7 @@ class TelegramBotCallback(Callback):
             f"Validation finished for epoch {self.n_epoch} out of {self.max_epochs}",
             "Epoch duration: %s" % str(epoch_duration),
             "Obtained validation loss: %.2f" % val_loss,
+            "Obtained training loss: %.2f" % pl_module.avg_train_loss,
         ]
         if self.n_epoch > 1:
             if val_loss < self.best_result:
