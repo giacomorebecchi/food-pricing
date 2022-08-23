@@ -44,6 +44,7 @@ def main(
     send_telegram_message(init_message)
 
     for model_class in models:
+        model_name = model_class.__name__
         if issubclass(model_class, FoodPricingBaseModel):
             hparams = hparams_config["pytorch"]
         elif issubclass(model_class, XGBBaseModel):
@@ -51,21 +52,26 @@ def main(
         elif issubclass(model_class, FPMeanBaselineModel):
             hparams = {}
         else:
-            raise Exception(f"Unrecognised class {model_class}")
+            raise Exception(f"Unrecognised class {model_name}.")
 
         hparams["trainer_run_id"] = run_id
 
         # Create the model instance
+        logging.info(f"Creating instance of model {model_name}.")
         model = model_class(**hparams)
 
         # Fit the model
+        logging.info(f"Starting to fit model {model_name}.")
         model.fit()
+        logging.info(f"Finished fitting model {model_name}.")
 
         # Produce predictions (stored in ./submissions)
         _ = model.make_submission_frame()
+        logging.info("Finished submitting predictions for model {model_name}.")
 
         # Free memory
         del model
+        logging.info("Released memory occupied from model {model_name}.")
 
 
 if __name__ == "__main__":
