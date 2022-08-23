@@ -1,6 +1,6 @@
 pytorch:
   # Generic training settings
-  max_epochs: 1
+  max_epochs: 15
   batch_size: 64
   loader_workers: 8
   lazy_dataset: False
@@ -28,6 +28,10 @@ pytorch:
   lr_scheduler_patience: 5
   # Storage of test predictions
   store_submission_frame: True
+  # Unfreezing of encoders parameters
+  n_epochs_unfreeze_language_module": 8
+  n_epochs_unfreeze_vision_module": 10
+  n_epochs_unfreeze_dual_module": 8
 
 xgb:
   load_data: False
