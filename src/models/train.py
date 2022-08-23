@@ -1,3 +1,4 @@
+import logging
 import traceback
 
 from src.models.base_model import FoodPricingBaseModel
@@ -12,8 +13,14 @@ from src.models.utils.notifier import (
     get_init_message,
     send_telegram_message,
 )
-from src.models.utils.storage import get_hparams_config, get_run_id
+from src.models.utils.storage import get_hparams_config, get_log_path, get_run_id
 from src.models.xgb import XGBCLIP, XGBBaseModel, XGBBERTResNet152
+
+logging.basicConfig(
+    filename=get_log_path(),
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s",
+)
 
 MODELS = [
     FPMeanBaselineModel,
@@ -68,4 +75,4 @@ if __name__ == "__main__":
         message = f"Training interrupted at time {get_run_id()}.\n"
         f"Complete traceback: {traceback.format_exc()}"
         send_telegram_message(message)
-        print(traceback.format_exc())
+        logging.error(traceback.format_exc())
