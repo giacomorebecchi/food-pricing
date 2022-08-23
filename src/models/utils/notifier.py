@@ -11,12 +11,20 @@ from .storage import ParamConfig
 
 ModelsList = List[Union[XGBBaseModel, FoodPricingBaseModel, FPMeanBaselineModel]]
 
+LEN_MAX = 4096
+
 
 def send_telegram_message(message: str) -> None:
     try:
         bot_settings = get_notifier_settings()
         bot = Bot(token=bot_settings.BOT_TOKEN)
-        bot.send_message(chat_id=bot_settings.CHAT_ID, text=message)
+        if len(message) > LEN_MAX:
+            for x in range(0, len(message), LEN_MAX):
+                bot.send_message(
+                    chat_id=bot_settings.CHAT_ID, text=message[x : x + LEN_MAX]
+                )
+        else:
+            bot.send_message(chat_id=bot_settings.CHAT_ID, text=message)
     except Exception as e:
         logging.error(
             f"Failed to send message: {message} with Telegram Bot.\nException: {e}"
