@@ -2,7 +2,7 @@ import tempfile
 from datetime import datetime, timezone
 from math import ceil
 from pathlib import PurePosixPath
-from typing import List
+from typing import Callable, List
 
 import fasttext
 import numpy as np
@@ -13,13 +13,13 @@ from tqdm.autonotebook import tqdm
 from ..data.config import TXT_TRAIN
 from .base_model import FoodPricingBaseModel
 from .utils.data import FoodPricingDataset
-from .utils.storage import get_local_models_path
+from .utils.storage import get_local_models_path, store_submission_frame
 
 
 class FPMeanBaselineModel:
     def __init__(self, **hparams) -> None:
         self.hparams = hparams
-        self.output_path = self._get_path()
+        self.model_name = self.__class__.__name__
 
     def fit(self) -> None:
         train_dataloader = self._get_dataloader("train")
@@ -44,6 +44,12 @@ class FPMeanBaselineModel:
             submission_frame.loc[batch["id"], "pred"] = self.pred
         test_mse = ((submission_frame["true"] - submission_frame["pred"]).pow(2)).mean()
         print(f"Test MSE: {test_mse:.3f}")
+        if self.hparams.get("store_submission_frame", True):
+            store_submission_frame(
+                submission_frame=submission_frame,
+                model_name=self.model_name,
+                run_id=self.hparams.get("trainer_run_id", None),
+            )
         return submission_frame
 
     def _build_dataset(self, split: str) -> FoodPricingDataset:
@@ -58,7 +64,7 @@ class FPMeanBaselineModel:
     ) -> PurePosixPath:
         return get_local_models_path(path, self, file_name, file_format)
 
-    def _get_dataloader(self, split):
+    def _get_dataloader(self, split) -> DataLoader:
         dataset = self._build_dataset(split)
         return DataLoader(
             dataset,
@@ -72,7 +78,7 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
     def __init__(self, *args, **kwargs):
         super(FPCBOWResNet152ConcatBaselineModel, self).__init__(*args, **kwargs)
 
-    def _build_txt_transform(self):
+    def _build_txt_transform(self) -> Callable:
         if path := self.hparams.fasttext_model_path:
             language_transform = fasttext.load_model(path)
         else:
@@ -100,7 +106,7 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
             language_transform.save_model(path)
         return language_transform.get_sentence_vector
 
-    def _get_fasttext_path(self):
+    def _get_fasttext_path(self) -> str:
         t = datetime.now(timezone.utc).isoformat()
         return str(self._get_path(path=["fasttext"], file_name=t, file_format=".bin"))
 

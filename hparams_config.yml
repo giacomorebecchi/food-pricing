@@ -1,0 +1,34 @@
+pytorch:
+  # Generic training settings
+  max_epochs: 1
+  batch_size: 64
+  loader_workers: 8
+  lazy_dataset: False
+  shuffle_train_dataset: True
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: null
+  accelerator: auto
+  devices: 1
+  # Size of initial and intermediate embeddings
+  img_dim: 224
+  embedding_dim: 300
+  language_feature_dim: 512
+  vision_feature_dim: 512
+  # Size of the layer after the concatenation 
+  fusion_output_dim: 512
+  # Callbacks
+  verbose: True
+  early_stop_patience: 10
+  backup_n_epochs: 10
+  # Optimization settings
+  dropout_p: 0.3
+  optimizer_lr: 0.0001
+  optimizer_weight_decay: 0.001
+  lr_scheduler_factor: 0.2
+  lr_scheduler_patience: 5
+  # Storage of test predictions
+  store_submission_frame: True
+
+xgb:
+  load_data: False
+  num_round: 10

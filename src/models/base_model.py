@@ -18,7 +18,11 @@ from .feature_combinators import (
 )
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
-from .utils.storage import get_best_checkpoint_path, get_local_models_path
+from .utils.storage import (
+    get_best_checkpoint_path,
+    get_local_models_path,
+    store_submission_frame,
+)
 from .vision.pretrained_resnet import PreTrainedResNet152
 
 if TYPE_CHECKING:
@@ -95,6 +99,8 @@ class FoodPricingBaseModel(LightningModule):
         self._add_model_specific_hparams()
         self._add_default_hparams()
         self.config: Dict = yaml.safe_load(open(CONFIG_PATH))
+
+        self.model_name = self.__class__.__name__
 
         self._set_seed(self.hparams.random_seed)
 
@@ -337,6 +343,14 @@ class FoodPricingBaseModel(LightningModule):
             preds, _ = self.eval().to("cpu")(batch["txt"], batch["img"])
             submission_frame.loc[batch["id"], "true"] = batch["label"].squeeze(-1)
             submission_frame.loc[batch["id"], "pred"] = preds.squeeze(-1)
+
+        if self.hparams.store_submission_frame:
+            store_submission_frame(
+                submission_frame=submission_frame,
+                model_name=self.model_name,
+                run_id=self.hparams.trainer_run_id,
+            )
+
         return submission_frame
 
     def _add_default_hparams(self) -> None:
@@ -383,6 +397,9 @@ class FoodPricingBaseModel(LightningModule):
             "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
+            # Test evaluation stored
+            "store_submission_frame": True,
+            "trainer_run_id": None,
         }
         self.hparams.update({**default_params, **self.hparams})
 
