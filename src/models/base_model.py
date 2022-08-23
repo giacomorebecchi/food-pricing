@@ -132,14 +132,17 @@ class FoodPricingBaseModel(LightningModule):
         self.loss_fn = torch.nn.MSELoss()
 
     def on_train_epoch_start(self) -> None:
-        if self._is_unfreeze_time("language_module"):
-            self._unfreeze_module(self.language_module)
+        self.training_step_outputs = []
+        if self.hparams.dual_module:
+            if self._is_unfreeze_time("dual_module"):
+                self._unfreeze_module(self.dual_module)
 
-        if self._is_unfreeze_time("vision_module"):
-            self._unfreeze_module(self.vision_module)
+        else:
+            if self._is_unfreeze_time("language_module"):
+                self._unfreeze_module(self.language_module)
 
-        if self._is_unfreeze_time("dual_module"):
-            self._unfreeze_module(self.dual_module)
+            if self._is_unfreeze_time("vision_module"):
+                self._unfreeze_module(self.vision_module)
 
     def forward(self, txt, img, label=None):
         if self.hparams.dual_module:
@@ -153,7 +156,7 @@ class FoodPricingBaseModel(LightningModule):
         loss = self.loss_fn(pred, label) if label is not None else None
         return pred, loss
 
-    def training_step(self, batch: Dict, batch_nb) -> torch.Tensor:
+    def training_step(self, batch: Dict, batch_nb, optimizer_idx=None) -> torch.Tensor:
         _, loss = self.forward(txt=batch["txt"], img=batch["img"], label=batch["label"])
         self.log(
             "train_loss",
@@ -168,9 +171,10 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def training_epoch_end(self, training_step_outputs) -> None:
-        self.avg_train_loss = torch.stack(
-            tuple(training_step_outputs)
-        ).mean()  # stored in stored in order to be accessed by Callbacks
+        logging.info(training_step_outputs)
+        self.avg_train_loss = torch.Tensor(
+            self._stack_outputs(training_step_outputs)
+        ).mean()  # stored in order to be accessed by Callbacks
         self.log("avg_train_loss", self.avg_train_loss, logger=True)
 
     def validation_step(self, batch, batch_nb) -> torch.Tensor:
@@ -327,7 +331,7 @@ class FoodPricingBaseModel(LightningModule):
                     logging.info(
                         f"Unsuccessfully loaded general parameters in module: {encoder}"
                     )
-        return itertools.chain(params)
+        return itertools.chain(*params)
 
     def _get_encoder_params(self) -> Generator:
         if self.hparams.dual_module:
@@ -343,7 +347,13 @@ class FoodPricingBaseModel(LightningModule):
                     f"Unsuccessfully loaded encoder parameters in module: {encoder}"
                 )
 
-        return itertools.chain(params)
+        return itertools.chain(*params)
+
+    def _stack_outputs(self, outputs) -> torch.Tensor:
+        if isinstance(outputs, list):
+            return [self._stack_outputs(output) for output in outputs]
+        elif isinstance(outputs, dict):
+            return outputs["loss"]
 
     def _build_dual_module(self) -> torch.nn.Module:
         return lambda txt, img: (txt, img)
