@@ -45,7 +45,6 @@ class FPCLIPConcatModel(FoodPricingBaseModel):
             "processor_clip_model": self.hparams.get(
                 "clip_model", "clip-italian/clip-italian"
             ),  # Default is same as "clip_model" param
-            "n_epochs_unfreeze_dual_module": 10,
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
 
