@@ -1,11 +1,11 @@
 pytorch:
   # Generic training settings
-  max_epochs: 50
+  max_epochs: 1
   batch_size: 64
   loader_workers: 8
   lazy_dataset: False
   shuffle_train_dataset: True
-  num_sanity_val_steps: null
+  num_sanity_val_steps: 0
   accumulate_grad_batches: null
   accelerator: auto
   devices: 1
@@ -29,5 +29,6 @@ pytorch:
   # Storage of test predictions
   store_submission_frame: True
 
-# xgb:
-#   a: None
+xgb:
+  load_data: False
+  num_round: 10
