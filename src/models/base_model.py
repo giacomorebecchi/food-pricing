@@ -166,6 +166,12 @@ class FoodPricingBaseModel(LightningModule):
 
         return loss
 
+    def training_epoch_end(self, training_step_outputs) -> None:
+        self.avg_train_loss = torch.stack(
+            tuple(training_step_outputs)
+        ).mean()  # stored in stored in order to be accessed by Callbacks
+        self.log("avg_train_loss", self.avg_train_loss, logger=True)
+
     def validation_step(self, batch, batch_nb) -> torch.Tensor:
         _, loss = self.eval().forward(
             txt=batch["txt"], img=batch["img"], label=batch["label"]
