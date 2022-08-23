@@ -116,6 +116,5 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
             "fusion_output_size": 512,
             "fasttext_model": "cbow",
             "fasttext_model_path": None,
-            "n_epochs_unfreeze_vision_module": 10,
         }
         self.hparams.update({**model_specific_hparams, **self.hparams})
