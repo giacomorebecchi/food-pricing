@@ -40,7 +40,7 @@ def main(
 
     run_id = get_run_id()
     hparams_config = get_hparams_config()
-    init_message = get_init_message()
+    init_message = get_init_message(models=models, hparams_config=hparams_config)
     send_telegram_message(init_message)
 
     for model_class in models:
@@ -72,7 +72,10 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        message = f"Training interrupted at time {get_run_id()}.\n"
-        f"Complete traceback: {traceback.format_exc()}"
+        trbck = traceback.format_exc()
+        message = (
+            f"Training interrupted at time {get_run_id()}.\n"
+            + f"Complete traceback: {trbck}"
+        )
         send_telegram_message(message)
-        logging.error(traceback.format_exc())
+        logging.error(trbck)
