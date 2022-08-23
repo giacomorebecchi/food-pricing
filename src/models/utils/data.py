@@ -52,7 +52,7 @@ class FoodPricingDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx) -> Dict[str, Union[Tensor, List[str]]]:
+    def alternative_getitem__(self, idx) -> Dict[str, Union[Tensor, List[str]]]:
         if is_tensor(idx):
             idx = idx.to_list()
         row = self.data.iloc[idx, :]
@@ -79,7 +79,7 @@ class FoodPricingDataset(Dataset):
             "label": Tensor([label]),
         }
 
-    def _deprecated_getitem__(
+    def __getitem__(
         self,
         idx,
     ) -> Dict[str, Tensor]:
