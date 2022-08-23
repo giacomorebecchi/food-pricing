@@ -1,4 +1,6 @@
+import logging
 import random
+import traceback
 from typing import TYPE_CHECKING, Callable, Dict, List, Union
 
 import numpy as np
@@ -231,7 +233,15 @@ class FoodPricingBaseModel(LightningModule):
     def _unfreeze_module(
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
     ) -> None:
-        module.unfreeze_encoder()
+        try:
+            module.unfreeze_encoder()
+        except Exception:
+            trbck = traceback.format_exc()
+            message = (
+                f"Attempted unfreezing module {module.__class__.__name__}.\n"
+                + f"Complete traceback: {trbck}"
+            )
+            logging.info(message)
 
     def _build_dual_module(self) -> torch.nn.Module:
         return lambda txt, img: (txt, img)
