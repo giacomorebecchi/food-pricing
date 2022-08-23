@@ -225,6 +225,9 @@ class FoodPricingBaseModel(LightningModule):
             torch.cuda.manual_seed_all(seed)
 
     def _is_unfreeze_time(self, module_name: str) -> bool:
+        if module_name == "dual_module":
+            if not self.hparams.dual_module:
+                return False  # if dual_module is not in the architecture
         param_name = "n_epochs_unfreeze_" + module_name
         return (param_name in self.hparams) and (
             self.current_epoch >= self.hparams[param_name]
@@ -410,6 +413,10 @@ class FoodPricingBaseModel(LightningModule):
             # Test evaluation stored
             "store_submission_frame": True,
             "trainer_run_id": None,
+            # Modules unfreezing
+            "n_epochs_unfreeze_language_module": 10,
+            "n_epochs_unfreeze_vision_module": 20,
+            "n_epochs_unfreeze_dual_module": 10,
         }
         self.hparams.update({**default_params, **self.hparams})
 
