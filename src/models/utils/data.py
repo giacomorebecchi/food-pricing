@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Callable, Dict, Generator, Optional
+from typing import Callable, Dict, Generator, List, Optional, Union
 
 import yaml
 from PIL import Image, ImageFile
@@ -52,7 +52,34 @@ class FoodPricingDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(
+    def __getitem__(self, idx) -> Dict[str, Union[Tensor, List[str]]]:
+        if is_tensor(idx):
+            idx = idx.to_list()
+        row = self.data.iloc[idx, :]
+        item_id = row.name
+        img_path = row["imgPath"]
+        img = self.img_transform(
+            self.get_img(
+                local_path=img_path,
+                remote_path=img_path,
+                name=item_id,
+            )
+        )
+        txt = self.txt_transform(row["txt"])
+        if self.dual_transform is not None:
+            txt, img = self.dual_transform([txt], img.unsqueeze(0))
+        lat = row["lat"]
+        lon = row["lon"]
+        label = row["price_fractional"]
+        return {
+            "id": item_id,
+            "img": img,
+            "txt": txt,
+            "coords": Tensor([lat, lon]),
+            "label": Tensor([label]),
+        }
+
+    def _deprecated_getitem__(
         self,
         idx,
     ) -> Dict[str, Tensor]:
