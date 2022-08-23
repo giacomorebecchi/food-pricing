@@ -1,7 +1,8 @@
+import itertools
 import logging
 import random
 import traceback
-from typing import TYPE_CHECKING, Callable, Dict, List, Union
+from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -193,24 +194,79 @@ class FoodPricingBaseModel(LightningModule):
         ).mean()  # stored in order to be accessed by Callbacks
         self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
-    def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.RAdam(
-            self.parameters(),
-            lr=self.hparams.optimizer_lr,
-            weight_decay=self.hparams.optimizer_weight_decay,
-        )
+    def configure_optimizers(self) -> Union[Dict, Tuple[Dict, Dict]]:
+        general_params = self._get_general_params()
+
+        if self.hparams.optimizer_name == "radam":
+            optimizer = torch.optim.RAdam(
+                general_params,
+                lr=self.hparams.optimizer_lr,
+                weight_decay=self.hparams.optimizer_weight_decay,
+            )
+        elif self.hparams.optimizer_name == "adamw":
+            optimizer = torch.optim.AdamW(
+                general_params,
+                lr=self.hparams.optimizer_lr,
+                weight_decay=self.hparams.optimizer_weight_decay,
+            )
+        else:
+            raise Exception(f"Uninmplemented optimizer {self.hparams.optimizer_name}.")
+
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             factor=self.hparams.lr_scheduler_factor,
             patience=self.hparams.lr_scheduler_patience,
         )
-        return {
+
+        optim_config = {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "avg_val_loss",
             },
         }
+
+        if self.hparams.encoder_optimizer_name is not None:
+            # if not None, this means we want different optimizers for the
+            # encoder modules and the general parameters
+            encoder_params = self._get_encoder_params()
+            if self.hparams.encoder_optimizer_name == "radam":
+                encoder_optimizer = torch.optim.RAdam(
+                    encoder_params,
+                    lr=self.hparams.encoder_optimizer_lr,
+                    weight_decay=self.hparams.encoder_optimizer_weight_decay,
+                )
+            elif self.hparams.encoder_optimizer_name == "adamw":
+                encoder_optimizer = torch.optim.AdamW(
+                    encoder_params,
+                    lr=self.hparams.encoder_optimizer_lr,
+                    weight_decay=self.hparams.encoder_optimizer_weight_decay,
+                )
+            else:
+                raise Exception(
+                    f"Uninmplemented optimizer {self.hparams.optimizer_name}."
+                )
+
+            encoder_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                encoder_optimizer,
+                factor=self.hparams.encoder_lr_scheduler_factor,
+                patience=self.hparams.encoder_lr_scheduler_patience,
+            )
+
+            encoder_optim_config = {
+                "optimizer": encoder_optimizer,
+                "lr_scheduler": {
+                    "scheduler": encoder_scheduler,
+                    "monitor": "avg_val_loss",
+                },
+            }
+
+            optim_config = (  # this becomes a Tuple
+                optim_config,
+                encoder_optim_config,
+            )
+
+        return optim_config
 
     def fit(self) -> None:
         self._set_seed(self.hparams.random_seed)
@@ -252,6 +308,43 @@ class FoodPricingBaseModel(LightningModule):
             )
             logging.info(message)
 
+    def _get_general_params(self) -> Generator:
+        if self.hparams.encoder_optimizer_name is None:
+            return self.parameters()
+        else:
+            params = [self.fusion_module.parameters()]
+            if self.hparams.attention_module:
+                params.append(self.attention_module.parameters())
+
+            if self.hparams.dual_module:
+                encoders = [self.dual_module]
+            else:
+                encoders = [self.language_module, self.vision_module]
+            for encoder in encoders:
+                try:
+                    params.append(encoder.get_general_params())
+                except Exception:
+                    logging.info(
+                        f"Unsuccessfully loaded general parameters in module: {encoder}"
+                    )
+        return itertools.chain(params)
+
+    def _get_encoder_params(self) -> Generator:
+        if self.hparams.dual_module:
+            encoders = [self.dual_module]
+        else:
+            encoders = [self.language_module, self.vision_module]
+        params = []
+        for encoder in encoders:
+            try:
+                params.append(encoder.get_encoder_params())
+            except Exception:
+                logging.info(
+                    f"Unsuccessfully loaded encoder parameters in module: {encoder}"
+                )
+
+        return itertools.chain(params)
+
     def _build_dual_module(self) -> torch.nn.Module:
         return lambda txt, img: (txt, img)
 
@@ -266,10 +359,7 @@ class FoodPricingBaseModel(LightningModule):
         return module
 
     def _build_img_module(self) -> torch.nn.Module:
-        module = torch.nn.Sequential(
-            PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim),
-            torch.nn.ReLU(),
-        )
+        module = PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim)
         return module
 
     def _build_txt_transform(self) -> Callable:
@@ -412,10 +502,17 @@ class FoodPricingBaseModel(LightningModule):
             "early_stop_patience": 10,
             "backup_n_epochs": 10,
             # Optimizer params
+            "optimizer_name": "adamw",
             "optimizer_lr": 1e-04,
             "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
+            # Specific Encoders optimizer params
+            "encoder_optimizer_name": None,  # w/ None, encoder uses the standard opt.
+            "encoder_optimizer_lr": self.hparams.get("optimizer_lr", 1e-04),
+            "encoder_optimizer_weight_decay": self.hparams.get(
+                "optimizer_weight_decay", 1e-03
+            ),
             # Test evaluation stored
             "store_submission_frame": True,
             "trainer_run_id": None,
