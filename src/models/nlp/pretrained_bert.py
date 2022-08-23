@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, Optional
 
 from torch import Tensor, nn
 from transformers import AutoModel, AutoTokenizer
@@ -57,6 +57,22 @@ class PreTrainedBERT(nn.Module):
             for param in self.bert.parameters():
                 param.requires_grad = True
             self.frozen = False
+
+    def get_general_params(self) -> Generator:
+        if self.add_fc:
+            for name, param in self.named_parameters():
+                if name in ["fc.0.weight", "fc.0.bias"]:
+                    yield param
+        else:
+            yield from ()
+
+    def get_encoder_params(self) -> Generator:
+        if self.add_fc:
+            for name, param in self.named_parameters():
+                if name not in ["fc.0.weight", "fc.0.bias"]:
+                    yield param
+        else:
+            yield from self.parameters()
 
     def prepare_sample(self, txt: List[str]) -> Dict:
         return self.tokenizer(txt, padding=True, return_tensors="pt")
