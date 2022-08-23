@@ -19,7 +19,7 @@ from src.models.xgb import XGBCLIP, XGBBaseModel, XGBBERTResNet152
 logging.basicConfig(
     filename=get_log_path(),
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s",
+    format="%(asctime)s %(name)s %(levelname)s %(module)s %(funcName)s %(message)s",
 )
 
 MODELS = [
