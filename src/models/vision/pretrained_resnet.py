@@ -30,14 +30,20 @@ class PreTrainedResNet152(nn.Module):
 
     def freeze_encoder(self) -> None:
         for name, param in self.named_parameters():
-            if name not in ["resnet.0.fc.weight", "resnet.0.fc.bias"]:
+            if self.feature_dim is None or name not in [
+                "resnet.0.fc.weight",
+                "resnet.0.fc.bias",
+            ]:
                 param.requires_grad = False
         self.frozen = True
 
     def unfreeze_encoder(self) -> None:
         if self.frozen:
             for name, param in self.named_parameters():
-                if name not in ["resnet.0.fc.weight", "resnet.0.fc.bias"]:
+                if self.feature_dim is None or name not in [
+                    "resnet.0.fc.weight",
+                    "resnet.0.fc.bias",
+                ]:
                     param.requires_grad = True
             self.frozen = False
             logging.info(f"Encoder model {self.__class__.__name__} started fine-tuning")
