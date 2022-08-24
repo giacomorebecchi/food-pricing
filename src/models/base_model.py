@@ -175,7 +175,6 @@ class FoodPricingBaseModel(LightningModule):
         return loss
 
     def training_epoch_end(self, training_step_outputs) -> None:
-        logging.info(training_step_outputs)
         self.avg_train_loss = torch.Tensor(
             self._stack_outputs(training_step_outputs)
         ).mean()  # stored in order to be accessed by Callbacks
@@ -307,15 +306,28 @@ class FoodPricingBaseModel(LightningModule):
     def _unfreeze_module(
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
     ) -> None:
-        try:
-            module.unfreeze_encoder()
-        except Exception:
-            trbck = traceback.format_exc()
-            message = (
-                f"Attempted unfreezing module {module.__class__.__name__}.\n"
-                + f"Complete traceback: {trbck}"
-            )
-            logging.info(message)
+        if issubclass(module, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)):
+            try:
+                module.unfreeze_encoder()
+            except Exception:
+                trbck = traceback.format_exc()
+                message = (
+                    f"Attempted unfreezing module {module.__class__.__name__}.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
+
+            try:
+                if len(self.optimizers()) > 1:
+                    self.optimizers()[1].add_param_group(module.get_encoder_params())
+            except Exception:
+                trbck = traceback.format_exc()
+                message = (
+                    f"Attempt to add parameters of {module.__class__.__name__} "
+                    + "to encoder optimizer failed.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
 
     def _get_general_params(self) -> Generator:
         if self.hparams.encoder_optimizer_name is None:
@@ -331,7 +343,12 @@ class FoodPricingBaseModel(LightningModule):
                 encoders = [self.language_module, self.vision_module]
             for encoder in encoders:
                 try:
-                    params.append(encoder.get_general_params())
+                    if issubclass(
+                        encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
+                    ):
+                        params.append(encoder.get_general_params())
+                    else:
+                        params.append(encoder.parameters())
                 except Exception:
                     logging.info(
                         f"Unsuccessfully loaded general parameters in module: {encoder}"
@@ -339,17 +356,24 @@ class FoodPricingBaseModel(LightningModule):
         return itertools.chain(*params)
 
     def _get_encoder_params(self) -> Generator:
+        params = []
         if self.hparams.dual_module:
             encoders = [self.dual_module]
         else:
             encoders = [self.language_module, self.vision_module]
-        params = []
         for encoder in encoders:
             try:
-                params.append(encoder.get_encoder_params())
+                if (
+                    issubclass(
+                        encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
+                    )
+                    and not encoder.frozen
+                ):
+                    params.append(encoder.get_encoder_params())
             except Exception:
                 logging.info(
                     f"Unsuccessfully loaded encoder parameters in module: {encoder}"
+                    "Not adding it to encoder parameters by default."
                 )
 
         return itertools.chain(*params)
