@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from pytorch_lightning.utilities.parsing import AttributeDict
+from sklearn.metrics import mean_squared_error
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm.autonotebook import tqdm
@@ -47,6 +48,9 @@ class XGBBaseModel:
         self.d_dev = self._build_dataset("dev")
         self.d_test = self._build_dataset("test")
 
+        # store the train labels
+        self.train_labels = self._get_labels("train")
+
     def save_hyperparameters(self, kwargs: Dict[str, Any]) -> None:
         self.hparams = AttributeDict(kwargs)
         self._add_model_specific_hparams()
@@ -71,13 +75,20 @@ class XGBBaseModel:
                 verbose_eval=False,
             )
             self.grid_search_results[i]["best_score"] = regressor.best_score
-            self.telegram_callback.on_validation_epoch_end(
-                val_loss=regressor.best_score
+            iter_best_model = regressor[: regressor.best_iteration + 1]
+            train_loss = mean_squared_error(
+                y_true=self.train_labels,
+                y_pred=iter_best_model.predict(self.d_train),
+                squared=False,
+            )  # TODO: remove hardcoded objective
+            self.telegram_callback.on_train_epoch_end(
+                val_loss=regressor.best_score,
+                train_loss=train_loss,
             )
             if self.best_score is None or self.best_score > regressor.best_score:
                 best_iter = i
                 self.best_score = regressor.best_score
-                self.best_model = regressor[: regressor.best_iteration + 1]
+                self.best_model = iter_best_model
                 print(
                     "Found a new optimal parametrization with score: "
                     f"{self.best_score}"
@@ -277,6 +288,15 @@ class XGBBaseModel:
 
     def _get_name(self) -> str:
         return self.__class__.__name__
+
+    def _get_labels(self, split: str) -> np.ndarray:
+        dataset = FoodPricingDataset(
+            img_transform=lambda _: None,
+            txt_transform=lambda _: None,
+            split=split,
+        )
+        ar = torch.stack([dataset[i]["label"] for i in range(len(dataset))]).numpy()
+        return ar
 
 
 class XGBBERTResNet152(XGBBaseModel):
