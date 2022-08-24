@@ -132,7 +132,6 @@ class FoodPricingBaseModel(LightningModule):
         self.loss_fn = torch.nn.MSELoss()
 
     def on_train_epoch_start(self) -> None:
-        self.training_step_outputs = []
         if self.hparams.dual_module:
             if self._is_unfreeze_time("dual_module"):
                 self._unfreeze_module(self.dual_module)
