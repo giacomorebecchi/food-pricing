@@ -1,6 +1,6 @@
 import socket
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 import telegram
 from pytorch_lightning import LightningModule, Trainer
@@ -128,7 +128,9 @@ class XGBTelegramBotCallback:
         self.n_model += 1
         self.epoch_start = datetime.now()
 
-    def on_validation_epoch_end(self, val_loss: float) -> None:
+    def on_train_epoch_end(
+        self, val_loss: float, train_loss: Optional[float] = None
+    ) -> None:
         if self.n_model == 0:  # This means we are in a sanity check phase
             return None
         self.val_losses.append(val_loss := val_loss)
@@ -138,6 +140,8 @@ class XGBTelegramBotCallback:
             "Epoch duration: %s" % str(epoch_duration),
             "Obtained validation loss: %.2f" % val_loss,
         ]
+        if train_loss is not None:
+            contents.append("Obtained training loss: %.2f" % train_loss)
         if self.n_model > 1:
             if val_loss < self.best_result:
                 improvement = self.best_result - val_loss
