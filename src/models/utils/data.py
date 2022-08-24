@@ -48,9 +48,10 @@ class FoodPricingDataset(Dataset):
         self.img_transform = img_transform
         self.txt_transform = txt_transform
         self.dual_transform = dual_transform
+        self.len_data = len(self.data)
 
     def __len__(self) -> int:
-        return len(self.data)
+        return self.len_data
 
     def __getitem__(
         self,

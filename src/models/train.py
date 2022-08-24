@@ -73,6 +73,8 @@ def main(
         del model
         logging.info(f"Released memory occupied from model {model_name}.")
 
+    send_telegram_message(f"Training finished for run with ID: {run_id}")
+
 
 if __name__ == "__main__":
     try:

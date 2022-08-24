@@ -11,17 +11,17 @@ class FPBERTResNet152ConcatModel(FoodPricingBaseModel):
         tokenizer_kwargs = {
             "pretrained_model_name_or_path": self.hparams.tokenizer_bert_model
         }
-        language_transform = PreTrainedBERT(
+        language_module = PreTrainedBERT(
             model_kwargs=model_kwargs,
             tokenizer_kwargs=tokenizer_kwargs,
             feature_dim=self.hparams.language_feature_dim,
         )
         self.hparams.update(
             {
-                "embedding_dim": language_transform.encoder_features,
+                "embedding_dim": language_module.encoder_features,
             }
         )
-        return language_transform
+        return language_module
 
     def _add_model_specific_hparams(self) -> None:
         model_specific_hparams = {

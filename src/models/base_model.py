@@ -1,21 +1,31 @@
+import itertools
+import logging
 import random
-from typing import TYPE_CHECKING, Callable, Dict, List, Union
+import traceback
+from typing import Callable, Dict, Generator, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import torch
 import yaml
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning import (
+    LightningDataModule,
+    LightningModule,
+    Trainer,
+    seed_everything,
+)
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm.autonotebook import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .feature_combinators import (
     LanguageAndVisionConcat,
     LanguageAndVisionWeightedImportance,
 )
+from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import (
@@ -24,10 +34,6 @@ from .utils.storage import (
     store_submission_frame,
 )
 from .vision.pretrained_resnet import PreTrainedResNet152
-
-if TYPE_CHECKING:
-    from .dual_encoding.pretrained_clip import PreTrainedCLIP
-    from .nlp.pretrained_bert import PreTrainedBERT
 
 
 class FoodPricingBaseModel(LightningModule):
@@ -129,14 +135,16 @@ class FoodPricingBaseModel(LightningModule):
         self.loss_fn = torch.nn.MSELoss()
 
     def on_train_epoch_start(self) -> None:
-        if self._is_unfreeze_time("language_module"):
-            self._unfreeze_module(self.language_module)
+        if self.hparams.dual_module:
+            if self._is_unfreeze_time("dual_module"):
+                self._unfreeze_module(self.dual_module)
 
-        if self._is_unfreeze_time("vision_module"):
-            self._unfreeze_module(self.vision_module)
+        else:
+            if self._is_unfreeze_time("language_module"):
+                self._unfreeze_module(self.language_module)
 
-        if self._is_unfreeze_time("dual_module"):
-            self._unfreeze_module(self.dual_module)
+            if self._is_unfreeze_time("vision_module"):
+                self._unfreeze_module(self.vision_module)
 
     def forward(self, txt, img, label=None):
         if self.hparams.dual_module:
@@ -150,7 +158,7 @@ class FoodPricingBaseModel(LightningModule):
         loss = self.loss_fn(pred, label) if label is not None else None
         return pred, loss
 
-    def training_step(self, batch: Dict, batch_nb) -> torch.Tensor:
+    def training_step(self, batch: Dict, batch_nb, optimizer_idx=None) -> torch.Tensor:
         _, loss = self.forward(txt=batch["txt"], img=batch["img"], label=batch["label"])
         self.log(
             "train_loss",
@@ -163,6 +171,12 @@ class FoodPricingBaseModel(LightningModule):
         )
 
         return loss
+
+    def training_epoch_end(self, training_step_outputs) -> None:
+        self.avg_train_loss = torch.Tensor(
+            self._stack_outputs(training_step_outputs)
+        ).mean()  # stored in order to be accessed by Callbacks
+        self.log("avg_train_loss", self.avg_train_loss, logger=True)
 
     def validation_step(self, batch, batch_nb) -> torch.Tensor:
         _, loss = self.eval().forward(
@@ -185,24 +199,39 @@ class FoodPricingBaseModel(LightningModule):
         ).mean()  # stored in order to be accessed by Callbacks
         self.log("avg_val_loss", self.avg_val_loss, logger=True)
 
-    def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.RAdam(
-            self.parameters(),
-            lr=self.hparams.optimizer_lr,
-            weight_decay=self.hparams.optimizer_weight_decay,
-        )
+    def configure_optimizers(self) -> Union[Dict, Tuple[Dict, Dict]]:
+        general_params = self._get_general_params()
+
+        if self.hparams.optimizer_name == "radam":
+            optimizer = torch.optim.RAdam(
+                general_params,
+                lr=self.hparams.optimizer_lr,
+                weight_decay=self.hparams.optimizer_weight_decay,
+            )
+        elif self.hparams.optimizer_name == "adamw":
+            optimizer = torch.optim.AdamW(
+                general_params,
+                lr=self.hparams.optimizer_lr,
+                weight_decay=self.hparams.optimizer_weight_decay,
+            )
+        else:
+            raise Exception(f"Uninmplemented optimizer {self.hparams.optimizer_name}.")
+
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             factor=self.hparams.lr_scheduler_factor,
             patience=self.hparams.lr_scheduler_patience,
         )
-        return {
+
+        optim_config = {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "avg_val_loss",
             },
         }
+
+        return optim_config
 
     def fit(self) -> None:
         self._set_seed(self.hparams.random_seed)
@@ -221,8 +250,12 @@ class FoodPricingBaseModel(LightningModule):
         torch.use_deterministic_algorithms(True)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+        seed_everything(seed)  # Pytorch Lightning function
 
     def _is_unfreeze_time(self, module_name: str) -> bool:
+        if module_name == "dual_module":
+            if not self.hparams.dual_module:
+                return False  # if dual_module is not in the architecture
         param_name = "n_epochs_unfreeze_" + module_name
         return (param_name in self.hparams) and (
             self.current_epoch >= self.hparams[param_name]
@@ -231,7 +264,62 @@ class FoodPricingBaseModel(LightningModule):
     def _unfreeze_module(
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
     ) -> None:
-        module.unfreeze_encoder()
+        if isinstance(module, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)):
+            try:
+                module.unfreeze_encoder()
+            except Exception:
+                trbck = traceback.format_exc()
+                message = (
+                    f"Attempted unfreezing module {module.__class__.__name__}.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
+
+            try:
+                self.optimizers().add_param_group(
+                    {
+                        "params": module.get_encoder_params(),
+                        "lr": self.hparams.encoder_optimizer_lr,
+                        "weight_decay": self.hparams.encoder_optimizer_weight_decay,
+                    }
+                )
+            except Exception:
+                trbck = traceback.format_exc()
+                message = (
+                    f"Attempt to add parameters of {module.__class__.__name__} "
+                    + "to optimizer failed.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
+
+    def _get_general_params(self) -> Generator:
+        params = [self.fusion_module.parameters()]
+        if self.hparams.attention_module:
+            params.append(self.attention_module.parameters())
+
+        if self.hparams.dual_module:
+            encoders = [self.dual_module]
+        else:
+            encoders = [self.language_module, self.vision_module]
+        for encoder in encoders:
+            try:
+                if isinstance(
+                    encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
+                ):
+                    params.append(encoder.get_general_params())
+                else:
+                    params.append(encoder.parameters())
+            except Exception:
+                logging.info(
+                    f"Unsuccessfully loaded general parameters in module: {encoder}"
+                )
+        return itertools.chain(*params)
+
+    def _stack_outputs(self, outputs) -> torch.Tensor:
+        if isinstance(outputs, list):
+            return [self._stack_outputs(output) for output in outputs]
+        elif isinstance(outputs, dict):
+            return outputs["loss"]
 
     def _build_dual_module(self) -> torch.nn.Module:
         return lambda txt, img: (txt, img)
@@ -247,10 +335,7 @@ class FoodPricingBaseModel(LightningModule):
         return module
 
     def _build_img_module(self) -> torch.nn.Module:
-        module = torch.nn.Sequential(
-            PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim),
-            torch.nn.ReLU(),
-        )
+        module = PreTrainedResNet152(feature_dim=self.hparams.vision_feature_dim)
         return module
 
     def _build_txt_transform(self) -> Callable:
@@ -330,6 +415,7 @@ class FoodPricingBaseModel(LightningModule):
             "max_epochs": self.hparams.max_epochs,
             "gradient_clip_val": self.hparams.gradient_clip_value,
             "num_sanity_val_steps": self.hparams.num_sanity_val_steps,
+            "deterministic": self.hparams.deterministic,
         }
         return trainer_params
 
@@ -356,6 +442,7 @@ class FoodPricingBaseModel(LightningModule):
     def _add_default_hparams(self) -> None:
         default_params = {
             "random_seed": 42,
+            "deterministic": True,
             "lazy_dataset": False,
             "shuffle_train_dataset": True,
             "batch_size": 32,
@@ -393,13 +480,23 @@ class FoodPricingBaseModel(LightningModule):
             "early_stop_patience": 10,
             "backup_n_epochs": 10,
             # Optimizer params
+            "optimizer_name": "adamw",
             "optimizer_lr": 1e-04,
             "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
+            # Specific Encoders optimizer params
+            "encoder_optimizer_lr": self.hparams.get("optimizer_lr", 1e-04),
+            "encoder_optimizer_weight_decay": self.hparams.get(
+                "optimizer_weight_decay", 1e-03
+            ),
             # Test evaluation stored
             "store_submission_frame": True,
             "trainer_run_id": None,
+            # Modules unfreezing
+            "n_epochs_unfreeze_language_module": 10,
+            "n_epochs_unfreeze_vision_module": 20,
+            "n_epochs_unfreeze_dual_module": 10,
         }
         self.hparams.update({**default_params, **self.hparams})
 

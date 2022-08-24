@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 
 from torch import Tensor, nn, tensor
 from transformers import AutoProcessor, VisionTextDualEncoderModel
@@ -99,6 +99,32 @@ class PreTrainedCLIP(nn.Module):
             else:
                 raise ValueError("Pixel values could not be transformed into a tensor.")
         return inputs
+
+    def get_general_params(self) -> Generator:
+        if self.add_txt_fc or self.add_img_fc:
+            for name, param in self.named_parameters():
+                if name in [
+                    "img_fc.0.weight",
+                    "img_fc.0.bias",
+                    "txt_fc.0.weight",
+                    "txt_fc.0.bias",
+                ]:
+                    yield param
+        else:
+            yield from ()
+
+    def get_encoder_params(self) -> Generator:
+        if self.add_txt_fc or self.add_img_fc:
+            for name, param in self.named_parameters():
+                if name not in [
+                    "img_fc.0.weight",
+                    "img_fc.0.bias",
+                    "txt_fc.0.weight",
+                    "txt_fc.0.bias",
+                ]:
+                    yield param
+        else:
+            yield from self.parameters()
 
     def forward(self, txt: List[str], img: Tensor) -> Tuple[Tensor, Tensor]:
         inputs = self.prepare_sample(txt, img)

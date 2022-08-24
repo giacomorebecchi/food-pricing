@@ -1,6 +1,6 @@
 import socket
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 import telegram
 from pytorch_lightning import LightningModule, Trainer
@@ -40,9 +40,7 @@ class TelegramBotCallback(Callback):
         self.n_epoch += 1
         self.epoch_start = datetime.now()
 
-    def on_validation_epoch_end(
-        self, trainer: Trainer, pl_module: LightningModule
-    ) -> None:
+    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if self.n_epoch == 0:  # This means we are in a sanity check phase
             return None
         self.val_losses.append(val_loss := pl_module.avg_val_loss)
@@ -52,6 +50,11 @@ class TelegramBotCallback(Callback):
             "Epoch duration: %s" % str(epoch_duration),
             "Obtained validation loss: %.2f" % val_loss,
         ]
+        try:
+            train_loss = pl_module.avg_train_loss
+            contents.append("Obtained training loss: %.2f" % train_loss)
+        except Exception:
+            pass
         if self.n_epoch > 1:
             if val_loss < self.best_result:
                 improvement = self.best_result - val_loss
@@ -125,7 +128,9 @@ class XGBTelegramBotCallback:
         self.n_model += 1
         self.epoch_start = datetime.now()
 
-    def on_validation_epoch_end(self, val_loss: float) -> None:
+    def on_train_epoch_end(
+        self, val_loss: float, train_loss: Optional[float] = None
+    ) -> None:
         if self.n_model == 0:  # This means we are in a sanity check phase
             return None
         self.val_losses.append(val_loss := val_loss)
@@ -135,6 +140,8 @@ class XGBTelegramBotCallback:
             "Epoch duration: %s" % str(epoch_duration),
             "Obtained validation loss: %.2f" % val_loss,
         ]
+        if train_loss is not None:
+            contents.append("Obtained training loss: %.2f" % train_loss)
         if self.n_model > 1:
             if val_loss < self.best_result:
                 improvement = self.best_result - val_loss

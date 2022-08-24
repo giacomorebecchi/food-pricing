@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, Optional
 
 from torch import Tensor, nn
 from transformers import AutoModel, AutoTokenizer
@@ -18,7 +18,11 @@ class PreTrainedBERT(nn.Module):
         )
         if not self.pretrained_model_name_or_path:
             raise ValueError("Specify the parameter pretrained_model_name_or_path.")
-        self.bert = AutoModel.from_pretrained(**model_kwargs, output_hidden_states=True)
+        self.bert = AutoModel.from_pretrained(
+            **model_kwargs,
+            output_hidden_states=False,
+            add_pooling_layer=False,
+        )
         self.encoder_features = self.bert.config.hidden_size
         self.add_fc = False
         if feature_dim and feature_dim != self.encoder_features:
@@ -54,15 +58,36 @@ class PreTrainedBERT(nn.Module):
                 param.requires_grad = True
             self.frozen = False
 
+    def get_general_params(self) -> Generator:
+        if self.add_fc:
+            for name, param in self.named_parameters():
+                if name in ["fc.0.weight", "fc.0.bias"]:
+                    yield param
+        else:
+            yield from ()
+
+    def get_encoder_params(self) -> Generator:
+        if self.add_fc:
+            for name, param in self.named_parameters():
+                if name not in ["fc.0.weight", "fc.0.bias"]:
+                    yield param
+        else:
+            yield from self.parameters()
+
     def prepare_sample(self, txt: List[str]) -> Dict:
         return self.tokenizer(txt, padding=True, return_tensors="pt")
 
     def forward(self, txt: List[str]) -> Tensor:
         encoded_batch = self.prepare_sample(txt)
-        token_emb = self.bert(
-            encoded_batch["input_ids"], encoded_batch["attention_mask"]
-        )
-        sent_emb = token_emb[0][:, 0, :]  # [CLS Token]
+        sent_emb = self.bert(
+            encoded_batch["input_ids"],
+            encoded_batch["attention_mask"],
+            output_attentions=False,
+            output_hidden_states=False,
+            return_dict=False,
+        )[0][
+            :, 0, :
+        ]  # [CLS Token]
         if self.add_fc:
             return self.fc(sent_emb)
         else:
