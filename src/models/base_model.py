@@ -8,7 +8,12 @@ import numpy as np
 import pandas as pd
 import torch
 import yaml
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning import (
+    LightningDataModule,
+    LightningModule,
+    Trainer,
+    seed_everything,
+)
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
@@ -288,6 +293,7 @@ class FoodPricingBaseModel(LightningModule):
         torch.use_deterministic_algorithms(True)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+        seed_everything(seed)  # Pytorch Lightning function
 
     def _is_unfreeze_time(self, module_name: str) -> bool:
         if module_name == "dual_module":
@@ -448,6 +454,7 @@ class FoodPricingBaseModel(LightningModule):
             "max_epochs": self.hparams.max_epochs,
             "gradient_clip_val": self.hparams.gradient_clip_value,
             "num_sanity_val_steps": self.hparams.num_sanity_val_steps,
+            "deterministic": self.hparams.deterministic,
         }
         return trainer_params
 
@@ -474,6 +481,7 @@ class FoodPricingBaseModel(LightningModule):
     def _add_default_hparams(self) -> None:
         default_params = {
             "random_seed": 42,
+            "deterministic": True,
             "lazy_dataset": False,
             "shuffle_train_dataset": True,
             "batch_size": 32,
