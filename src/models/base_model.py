@@ -2,7 +2,7 @@ import itertools
 import logging
 import random
 import traceback
-from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Tuple, Union
+from typing import Callable, Dict, Generator, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,12 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm.autonotebook import tqdm
 
 from ..data.storage import CONFIG_PATH
+from .dual_encoding.pretrained_clip import PreTrainedCLIP
 from .feature_combinators import (
     LanguageAndVisionConcat,
     LanguageAndVisionWeightedImportance,
 )
+from .nlp.pretrained_bert import PreTrainedBERT
 from .utils.callbacks import TelegramBotCallback
 from .utils.data import FoodPricingDataset, FoodPricingLazyDataset
 from .utils.storage import (
@@ -32,10 +34,6 @@ from .utils.storage import (
     store_submission_frame,
 )
 from .vision.pretrained_resnet import PreTrainedResNet152
-
-if TYPE_CHECKING:
-    from .dual_encoding.pretrained_clip import PreTrainedCLIP
-    from .nlp.pretrained_bert import PreTrainedBERT
 
 
 class FoodPricingBaseModel(LightningModule):
@@ -233,46 +231,6 @@ class FoodPricingBaseModel(LightningModule):
             },
         }
 
-        if self.hparams.encoder_optimizer_name is not None:
-            # if not None, this means we want different optimizers for the
-            # encoder modules and the general parameters
-            encoder_params = self._get_encoder_params()
-            if self.hparams.encoder_optimizer_name == "radam":
-                encoder_optimizer = torch.optim.RAdam(
-                    encoder_params,
-                    lr=self.hparams.encoder_optimizer_lr,
-                    weight_decay=self.hparams.encoder_optimizer_weight_decay,
-                )
-            elif self.hparams.encoder_optimizer_name == "adamw":
-                encoder_optimizer = torch.optim.AdamW(
-                    encoder_params,
-                    lr=self.hparams.encoder_optimizer_lr,
-                    weight_decay=self.hparams.encoder_optimizer_weight_decay,
-                )
-            else:
-                raise Exception(
-                    f"Uninmplemented optimizer {self.hparams.optimizer_name}."
-                )
-
-            encoder_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                encoder_optimizer,
-                factor=self.hparams.encoder_lr_scheduler_factor,
-                patience=self.hparams.encoder_lr_scheduler_patience,
-            )
-
-            encoder_optim_config = {
-                "optimizer": encoder_optimizer,
-                "lr_scheduler": {
-                    "scheduler": encoder_scheduler,
-                    "monitor": "avg_val_loss",
-                },
-            }
-
-            optim_config = (  # this becomes a Tuple
-                optim_config,
-                encoder_optim_config,
-            )
-
         return optim_config
 
     def fit(self) -> None:
@@ -306,7 +264,7 @@ class FoodPricingBaseModel(LightningModule):
     def _unfreeze_module(
         self, module: Union["PreTrainedCLIP", "PreTrainedBERT", "PreTrainedResNet152"]
     ) -> None:
-        if issubclass(module, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)):
+        if isinstance(module, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)):
             try:
                 module.unfreeze_encoder()
             except Exception:
@@ -318,13 +276,18 @@ class FoodPricingBaseModel(LightningModule):
                 logging.info(message)
 
             try:
-                if len(self.optimizers()) > 1:
-                    self.optimizers()[1].add_param_group(module.get_encoder_params())
+                self.optimizers().add_param_group(
+                    {
+                        "params": module.get_encoder_params(),
+                        "lr": self.hparams.encoder_optimizer_lr,
+                        "weight_decay": self.hparams.encoder_optimizer_weight_decay,
+                    }
+                )
             except Exception:
                 trbck = traceback.format_exc()
                 message = (
                     f"Attempt to add parameters of {module.__class__.__name__} "
-                    + "to encoder optimizer failed.\n"
+                    + "to optimizer failed.\n"
                     + f"Complete traceback: {trbck}"
                 )
                 logging.info(message)
@@ -343,7 +306,7 @@ class FoodPricingBaseModel(LightningModule):
                 encoders = [self.language_module, self.vision_module]
             for encoder in encoders:
                 try:
-                    if issubclass(
+                    if isinstance(
                         encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
                     ):
                         params.append(encoder.get_general_params())
@@ -353,29 +316,6 @@ class FoodPricingBaseModel(LightningModule):
                     logging.info(
                         f"Unsuccessfully loaded general parameters in module: {encoder}"
                     )
-        return itertools.chain(*params)
-
-    def _get_encoder_params(self) -> Generator:
-        params = []
-        if self.hparams.dual_module:
-            encoders = [self.dual_module]
-        else:
-            encoders = [self.language_module, self.vision_module]
-        for encoder in encoders:
-            try:
-                if (
-                    issubclass(
-                        encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
-                    )
-                    and not encoder.frozen
-                ):
-                    params.append(encoder.get_encoder_params())
-            except Exception:
-                logging.info(
-                    f"Unsuccessfully loaded encoder parameters in module: {encoder}"
-                    "Not adding it to encoder parameters by default."
-                )
-
         return itertools.chain(*params)
 
     def _stack_outputs(self, outputs) -> torch.Tensor:
@@ -549,7 +489,6 @@ class FoodPricingBaseModel(LightningModule):
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
             # Specific Encoders optimizer params
-            "encoder_optimizer_name": None,  # w/ None, encoder uses the standard opt.
             "encoder_optimizer_lr": self.hparams.get("optimizer_lr", 1e-04),
             "encoder_optimizer_weight_decay": self.hparams.get(
                 "optimizer_weight_decay", 1e-03
