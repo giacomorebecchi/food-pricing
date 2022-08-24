@@ -293,29 +293,26 @@ class FoodPricingBaseModel(LightningModule):
                 logging.info(message)
 
     def _get_general_params(self) -> Generator:
-        if self.hparams.encoder_optimizer_name is None:
-            return self.parameters()
-        else:
-            params = [self.fusion_module.parameters()]
-            if self.hparams.attention_module:
-                params.append(self.attention_module.parameters())
+        params = [self.fusion_module.parameters()]
+        if self.hparams.attention_module:
+            params.append(self.attention_module.parameters())
 
-            if self.hparams.dual_module:
-                encoders = [self.dual_module]
-            else:
-                encoders = [self.language_module, self.vision_module]
-            for encoder in encoders:
-                try:
-                    if isinstance(
-                        encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
-                    ):
-                        params.append(encoder.get_general_params())
-                    else:
-                        params.append(encoder.parameters())
-                except Exception:
-                    logging.info(
-                        f"Unsuccessfully loaded general parameters in module: {encoder}"
-                    )
+        if self.hparams.dual_module:
+            encoders = [self.dual_module]
+        else:
+            encoders = [self.language_module, self.vision_module]
+        for encoder in encoders:
+            try:
+                if isinstance(
+                    encoder, (PreTrainedBERT, PreTrainedResNet152, PreTrainedCLIP)
+                ):
+                    params.append(encoder.get_general_params())
+                else:
+                    params.append(encoder.parameters())
+            except Exception:
+                logging.info(
+                    f"Unsuccessfully loaded general parameters in module: {encoder}"
+                )
         return itertools.chain(*params)
 
     def _stack_outputs(self, outputs) -> torch.Tensor:
