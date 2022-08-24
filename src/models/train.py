@@ -44,34 +44,47 @@ def main(
     send_telegram_message(init_message)
 
     for model_class in models:
-        model_name = model_class.__name__
-        if issubclass(model_class, FoodPricingBaseModel):
-            hparams = hparams_config["pytorch"]
-        elif issubclass(model_class, XGBBaseModel):
-            hparams = hparams_config["xgb"]
-        elif issubclass(model_class, FPMeanBaselineModel):
-            hparams = {}
-        else:
-            raise Exception(f"Unrecognised class {model_name}.")
+        try:
+            model_name = model_class.__name__
+            if issubclass(model_class, FoodPricingBaseModel):
+                hparams = hparams_config["pytorch"]
+            elif issubclass(model_class, XGBBaseModel):
+                hparams = hparams_config["xgb"]
+            elif issubclass(model_class, FPMeanBaselineModel):
+                hparams = {}
+            else:
+                raise Exception(f"Unrecognised class {model_name}.")
 
-        hparams["trainer_run_id"] = run_id
+            hparams["trainer_run_id"] = run_id
 
-        # Create the model instance
-        logging.info(f"Creating instance of model {model_name}.")
-        model = model_class(**hparams)
+            # Create the model instance
+            logging.info(f"Creating instance of model {model_name}.")
+            model = model_class(**hparams)
 
-        # Fit the model
-        logging.info(f"Starting to fit model {model_name}.")
-        model.fit()
-        logging.info(f"Finished fitting model {model_name}.")
+            # Fit the model
+            logging.info(f"Starting to fit model {model_name}.")
+            model.fit()
+            logging.info(f"Finished fitting model {model_name}.")
 
-        # Produce predictions (stored in ./submissions)
-        _ = model.make_submission_frame()
-        logging.info(f"Finished submitting predictions for model {model_name}.")
+            # Produce predictions (stored in ./submissions)
+            _ = model.make_submission_frame()
+            logging.info(f"Finished submitting predictions for model {model_name}.")
 
-        # Free memory
-        del model
-        logging.info(f"Released memory occupied from model {model_name}.")
+            # Free memory
+            del model
+            logging.info(f"Released memory occupied from model {model_name}.")
+
+        except Exception:
+            trbck = traceback.format_exc()
+            message = (
+                f"Training of model {model_name} interrupted at time {get_run_id()}.\n"
+                + f"Complete traceback: {trbck}"
+            )
+            send_telegram_message(message)
+            if model_name != models[-1].__name__:
+                send_telegram_message("Continuing training for other models...")
+            logging.critical(trbck)
+            continue
 
     send_telegram_message(f"Training finished for run with ID: {run_id}")
 
