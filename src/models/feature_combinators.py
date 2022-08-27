@@ -1,4 +1,5 @@
-from typing import Tuple
+import logging
+from typing import List, Tuple, Union
 
 from torch import Tensor, cat, nn
 
@@ -8,19 +9,38 @@ class LanguageAndVisionConcat(nn.Module):
         self,
         language_feature_dim: int,
         vision_feature_dim: int,
-        fusion_output_dim: int,
+        fusion_output_dim: Union[int, List[int]],
         dropout_p: float,
     ) -> None:
         super(LanguageAndVisionConcat, self).__init__()
+        if isinstance(fusion_output_dim, list):
+            self.fusion_output_dim = fusion_output_dim
+        else:
+            self.fusion_output_dim = list(fusion_output_dim)
+
+        layers = []
+        in_features = language_feature_dim + vision_feature_dim
+        for dim in self.fusion_output_dim:
+            try:
+                assert isinstance(dim, int)
+            except AssertionError:
+                logging.error(
+                    "Parameter 'fusion_output_dim' is neither a List of integers "
+                    "nor a single integer"
+                )
+            layers.extend(
+                [
+                    nn.Linear(in_features=in_features, out_features=dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout_p),
+                ]
+            )
+            in_features = dim
+
         self.fusion = nn.Sequential(
             nn.LayerNorm(language_feature_dim + vision_feature_dim),
-            nn.Linear(
-                in_features=(language_feature_dim + vision_feature_dim),
-                out_features=fusion_output_dim,
-            ),
-            nn.ReLU(),
-            nn.Dropout(dropout_p),
-            nn.Linear(in_features=fusion_output_dim, out_features=1),
+            *layers,
+            nn.Linear(in_features=in_features, out_features=1),
         )
 
     def forward(self, txt: Tensor, img: Tensor) -> Tensor:
