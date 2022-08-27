@@ -278,7 +278,7 @@ class FoodPricingBaseModel(LightningModule):
                     f"Attempted unfreezing module {module.__class__.__name__}.\n"
                     + f"Complete traceback: {trbck}"
                 )
-                logging.info(message)
+                logging.error(message)
 
             try:
                 self.optimizers().add_param_group(
@@ -295,7 +295,7 @@ class FoodPricingBaseModel(LightningModule):
                     + "to optimizer failed.\n"
                     + f"Complete traceback: {trbck}"
                 )
-                logging.info(message)
+                logging.error(message)
 
             try:
                 self.lr_schedulers().min_lrs.append(self.hparams.lr_scheduler_min_lr)
@@ -305,7 +305,7 @@ class FoodPricingBaseModel(LightningModule):
                     + f"{module.__class__.__name__} to optimizer failed.\n"
                     + f"Complete traceback: {trbck}"
                 )
-                logging.info(message)
+                logging.error(message)
 
     def _get_general_params(self) -> Generator:
         params = [self.fusion_module.parameters()]
@@ -325,7 +325,7 @@ class FoodPricingBaseModel(LightningModule):
                 else:
                     params.append(encoder.parameters())
             except Exception:
-                logging.info(
+                logging.error(
                     f"Unsuccessfully loaded general parameters in module: {encoder}"
                 )
         return itertools.chain(*params)
