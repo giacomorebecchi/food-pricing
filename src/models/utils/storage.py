@@ -104,7 +104,7 @@ def get_hparams_config() -> ParamConfig:
                 else:
                     assert isinstance(val, PARAM_TYPES)
         except AssertionError:
-            logging.info(f"Invalid {hparams} of type {type(hparams)}")
+            logging.error(f"Invalid {hparams} of type {type(hparams)}")
     return hparams_config
 
 
