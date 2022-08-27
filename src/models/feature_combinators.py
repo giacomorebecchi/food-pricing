@@ -16,7 +16,7 @@ class LanguageAndVisionConcat(nn.Module):
         if isinstance(fusion_output_dim, list):
             self.fusion_output_dim = fusion_output_dim
         else:
-            self.fusion_output_dim = list(fusion_output_dim)
+            self.fusion_output_dim = [fusion_output_dim]
 
         layers = []
         in_features = language_feature_dim + vision_feature_dim
