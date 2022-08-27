@@ -225,6 +225,7 @@ class FoodPricingBaseModel(LightningModule):
             optimizer,
             factor=self.hparams.lr_scheduler_factor,
             patience=self.hparams.lr_scheduler_patience,
+            min_lr=self.hparams.lr_scheduler_min_lr,
         )
 
         optim_config = {
@@ -292,6 +293,16 @@ class FoodPricingBaseModel(LightningModule):
                 message = (
                     f"Attempt to add parameters of {module.__class__.__name__} "
                     + "to optimizer failed.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
+
+            try:
+                self.lr_schedulers().min_lrs.append(self.hparams.lr_scheduler_min_lr)
+            except Exception:
+                message = (
+                    "Attempt to add minimum learning rate of "
+                    + f"{module.__class__.__name__} to optimizer failed.\n"
                     + f"Complete traceback: {trbck}"
                 )
                 logging.info(message)
@@ -492,6 +503,7 @@ class FoodPricingBaseModel(LightningModule):
             "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
+            "lr_scheduler_min_lr": 1e-7,
             # Specific Encoders optimizer params
             "encoder_optimizer_lr": self.hparams.get("optimizer_lr", 1e-04),
             "encoder_optimizer_weight_decay": self.hparams.get(
