@@ -14,7 +14,11 @@ from pytorch_lightning import (
     Trainer,
     seed_everything,
 )
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm.autonotebook import tqdm
@@ -221,6 +225,7 @@ class FoodPricingBaseModel(LightningModule):
             optimizer,
             factor=self.hparams.lr_scheduler_factor,
             patience=self.hparams.lr_scheduler_patience,
+            min_lr=self.hparams.lr_scheduler_min_lr,
         )
 
         optim_config = {
@@ -258,7 +263,7 @@ class FoodPricingBaseModel(LightningModule):
                 return False  # if dual_module is not in the architecture
         param_name = "n_epochs_unfreeze_" + module_name
         return (param_name in self.hparams) and (
-            self.current_epoch >= self.hparams[param_name]
+            self.current_epoch == self.hparams[param_name]
         )
 
     def _unfreeze_module(
@@ -288,6 +293,16 @@ class FoodPricingBaseModel(LightningModule):
                 message = (
                     f"Attempt to add parameters of {module.__class__.__name__} "
                     + "to optimizer failed.\n"
+                    + f"Complete traceback: {trbck}"
+                )
+                logging.info(message)
+
+            try:
+                self.lr_schedulers().min_lrs.append(self.hparams.lr_scheduler_min_lr)
+            except Exception:
+                message = (
+                    "Attempt to add minimum learning rate of "
+                    + f"{module.__class__.__name__} to optimizer failed.\n"
                     + f"Complete traceback: {trbck}"
                 )
                 logging.info(message)
@@ -399,11 +414,14 @@ class FoodPricingBaseModel(LightningModule):
 
         notifier_callback = TelegramBotCallback()
 
+        lr_monitor = LearningRateMonitor(logging_interval="epoch")
+
         callbacks = [
             backup_callback,
             checkpoint_callback,
             early_stop_callback,
             notifier_callback,
+            lr_monitor,
         ]
 
         trainer_params = {
@@ -485,6 +503,7 @@ class FoodPricingBaseModel(LightningModule):
             "optimizer_weight_decay": 1e-3,
             "lr_scheduler_factor": 0.2,
             "lr_scheduler_patience": 5,
+            "lr_scheduler_min_lr": 1e-7,
             # Specific Encoders optimizer params
             "encoder_optimizer_lr": self.hparams.get("optimizer_lr", 1e-04),
             "encoder_optimizer_weight_decay": self.hparams.get(
