@@ -378,7 +378,7 @@ class FoodPricingBaseModel(LightningModule):
         module = LanguageAndVisionConcat(
             language_feature_dim=self.hparams.language_feature_dim,
             vision_feature_dim=self.hparams.vision_feature_dim,
-            fusion_output_size=self.hparams.fusion_output_size,
+            fusion_output_dim=self.hparams.fusion_output_dim,
             dropout_p=self.hparams.dropout_p,
         )
         return module
@@ -476,7 +476,7 @@ class FoodPricingBaseModel(LightningModule):
             "embedding_dim": 300,
             "language_feature_dim": 300,
             "vision_feature_dim": self.hparams.get("language_feature_dim", 300),
-            "fusion_output_size": 512,
+            "fusion_output_dim": 512,
             "dropout_p": 0.1,
             # Dual module
             "dual_module": False,

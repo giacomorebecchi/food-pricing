@@ -8,7 +8,7 @@ class LanguageAndVisionConcat(nn.Module):
         self,
         language_feature_dim: int,
         vision_feature_dim: int,
-        fusion_output_size: int,
+        fusion_output_dim: int,
         dropout_p: float,
     ) -> None:
         super(LanguageAndVisionConcat, self).__init__()
@@ -16,11 +16,11 @@ class LanguageAndVisionConcat(nn.Module):
             nn.LayerNorm(language_feature_dim + vision_feature_dim),
             nn.Linear(
                 in_features=(language_feature_dim + vision_feature_dim),
-                out_features=fusion_output_size,
+                out_features=fusion_output_dim,
             ),
             nn.ReLU(),
             nn.Dropout(dropout_p),
-            nn.Linear(in_features=fusion_output_size, out_features=1),
+            nn.Linear(in_features=fusion_output_dim, out_features=1),
         )
 
     def forward(self, txt: Tensor, img: Tensor) -> Tensor:
