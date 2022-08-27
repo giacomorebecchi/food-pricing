@@ -14,7 +14,11 @@ from pytorch_lightning import (
     Trainer,
     seed_everything,
 )
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from tqdm.autonotebook import tqdm
@@ -399,11 +403,14 @@ class FoodPricingBaseModel(LightningModule):
 
         notifier_callback = TelegramBotCallback()
 
+        lr_monitor = LearningRateMonitor(logging_interval="epoch")
+
         callbacks = [
             backup_callback,
             checkpoint_callback,
             early_stop_callback,
             notifier_callback,
+            lr_monitor,
         ]
 
         trainer_params = {
