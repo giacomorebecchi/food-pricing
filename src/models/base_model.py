@@ -258,7 +258,7 @@ class FoodPricingBaseModel(LightningModule):
                 return False  # if dual_module is not in the architecture
         param_name = "n_epochs_unfreeze_" + module_name
         return (param_name in self.hparams) and (
-            self.current_epoch >= self.hparams[param_name]
+            self.current_epoch == self.hparams[param_name]
         )
 
     def _unfreeze_module(
