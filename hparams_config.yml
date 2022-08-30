@@ -20,24 +20,24 @@ pytorch:
   dropout_p: 0.5
   # Callbacks
   verbose: True
-  early_stop_patience: 5
+  early_stop_patience: 40
   backup_n_epochs: 5
   # Optimization settings
   optimizer_name: adamw
-  optimizer_lr: 0.0002
-  optimizer_weight_decay: 0.05
+  optimizer_lr: 0.0001
+  optimizer_weight_decay: 0.1
   lr_scheduler_factor: 0.2
   lr_scheduler_patience: 2
   lr_scheduler_min_lr: 0.0000001
   # Encoder optimization settings
-  encoder_optimizer_lr: 0.0001
-  encoder_optimizer_weight_decay: 0.05
+  encoder_optimizer_lr: 0.00005
+  encoder_optimizer_weight_decay: 0.1
   # Storage of test predictions
   store_submission_frame: True
   # Unfreezing of encoders parameters
-  n_epochs_unfreeze_language_module: 25
-  n_epochs_unfreeze_vision_module: 25
-  n_epochs_unfreeze_dual_module: 25
+  n_epochs_unfreeze_language_module: 10
+  n_epochs_unfreeze_vision_module: 10
+  n_epochs_unfreeze_dual_module: 10
 
 xgb:
   # Data transformation in embeddings
