@@ -15,22 +15,22 @@ pytorch:
   language_feature_dim: 512
   vision_feature_dim: 512
   # Size of the layer after the concatenation 
-  fusion_output_dim: [768, 256]
+  fusion_output_dim: 512
   # Dropout
-  dropout_p: 0.5
+  dropout_p: 0.4
   # Callbacks
   verbose: True
   early_stop_patience: 40
   backup_n_epochs: 5
   # Optimization settings
   optimizer_name: adamw
-  optimizer_lr: 0.0001
+  optimizer_lr: 0.00005
   optimizer_weight_decay: 0.1
   lr_scheduler_factor: 0.2
   lr_scheduler_patience: 2
   lr_scheduler_min_lr: 0.0000001
   # Encoder optimization settings
-  encoder_optimizer_lr: 0.00005
+  encoder_optimizer_lr: 0.00001
   encoder_optimizer_weight_decay: 0.1
   # Storage of test predictions
   store_submission_frame: True
