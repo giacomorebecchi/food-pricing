@@ -35,10 +35,18 @@ def get_best_checkpoint_path(
     metric: str = "avg_val_loss",
     asc: bool = True,
     file_format: str = ".ckpt",
+    run: Optional[str] = None,
 ) -> str:
     model_name = model_class.__name__ if model_class is not None else ""
     current_path = PurePosixPath(__file__).parent
-    parent_path = current_path.parent.parent.parent.joinpath("models", model_name, "*")
+    if run is not None:
+        parent_path = current_path.parent.parent.parent.joinpath(
+            "models", run, model_name, "*"
+        )
+    else:
+        parent_path = current_path.parent.parent.parent.joinpath(
+            "models", model_name, "*"
+        )
     checkpoints = [
         path
         for el in glob.glob(str(parent_path))

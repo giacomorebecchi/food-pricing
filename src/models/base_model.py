@@ -245,8 +245,11 @@ class FoodPricingBaseModel(LightningModule):
 
     @classmethod
     def load_from_best_checkpoint(cls, **kwargs) -> LightningModule:
+        run = kwargs.get("run")
         best_checkpoint_path = get_best_checkpoint_path(model_class=cls, **kwargs)
-        return cls.load_from_checkpoint(checkpoint_path=best_checkpoint_path)
+        return cls.load_from_checkpoint(
+            checkpoint_path=best_checkpoint_path, run_path=run
+        )
 
     def _set_seed(self, seed: int) -> None:
         random.seed(seed)

@@ -80,6 +80,8 @@ class FPCBOWResNet152ConcatBaselineModel(FoodPricingBaseModel):
 
     def _build_txt_transform(self) -> Callable:
         if path := self.hparams.fasttext_model_path:
+            if run := self.hparams.get("run_path"):
+                path = path.replace("/models/", f"/models/{run}/")
             language_transform = fasttext.load_model(path)
         else:
             if self.config.get("txt_created", False):
